@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
 import Container from "@/components/common/Container";
 import LocationSelector from "./LocationSelector";
 import ScrapRateSearch from "./ScrapRateSearch";
 import ScrapRateFilters from "./ScrapRateFilters";
 import ScrapRateCard from "./ScrapRateCard";
+import ScrapRateCardSkeleton from "./ScrapRateCardSkeleton";
 import RateNotice from "./RateNotice";
 import { type Location } from "@/lib/constants/scrapRates";
 import type { PublicRateView } from "@/types/rates";
@@ -42,9 +42,17 @@ export default function ScrapRatesPageContent() {
         if (!catsRes.ok || !catsJson.success) {
           throw new Error(catsJson.message || "Failed to load categories.");
         }
-        setRates(ratesJson.data?.rates || []);
+        const loadedRates: PublicRateView[] = ratesJson.data?.rates || [];
+        setRates(loadedRates);
+
+        // Category tabs come from the database, limited to categories that
+        // currently have at least one published material.
+        const publishedCategories = new Set(
+          loadedRates.map((r) => r.category)
+        );
         const names: string[] = (catsJson.data?.categories || [])
           .map((c: { name: string }) => c.name)
+          .filter((name: string) => publishedCategories.has(name))
           .sort((a: string, b: string) => a.localeCompare(b));
         setCategoryNames(names);
         setLoadError(null);
@@ -75,11 +83,16 @@ export default function ScrapRatesPageContent() {
     [categoryNames]
   );
 
+  // Ignore a selected tab if its category no longer exists in the database.
+  const activeCategory = categoryNames.includes(category)
+    ? category
+    : ALL_CATEGORIES;
+
   const filtered = useMemo(() => {
     let items = rates;
 
-    if (category !== ALL_CATEGORIES) {
-      items = items.filter((r) => r.category === category);
+    if (activeCategory !== ALL_CATEGORIES) {
+      items = items.filter((r) => r.category === activeCategory);
     }
 
     if (search.trim()) {
@@ -93,7 +106,7 @@ export default function ScrapRatesPageContent() {
     }
 
     return items;
-  }, [rates, category, search]);
+  }, [rates, activeCategory, search]);
 
   return (
     <section className="py-10 sm:py-14">
@@ -121,7 +134,7 @@ export default function ScrapRatesPageContent() {
           <div className="flex justify-center">
             <ScrapRateFilters
               categories={filterOptions}
-              active={category}
+              active={activeCategory}
               onChange={setCategory}
             />
           </div>
@@ -131,11 +144,13 @@ export default function ScrapRatesPageContent() {
 
           {isLoading && (
             <div
-              className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-card py-16 text-sm text-muted"
+              className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
               role="status"
+              aria-label="Loading current rates"
             >
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              Loading current rates…
+              {Array.from({ length: 8 }).map((_, index) => (
+                <ScrapRateCardSkeleton key={index} />
+              ))}
             </div>
           )}
 
@@ -155,21 +170,21 @@ export default function ScrapRatesPageContent() {
           {!isLoading && !loadError && (
             <>
               {filtered.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {filtered.map((rate) => (
                     <ScrapRateCard key={rate.id} rate={rate} />
                   ))}
                 </div>
               ) : (
-                <div className="rounded-2xl border border-border bg-card py-16 text-center">
+                <div className="rounded-3xl border border-border bg-card py-16 text-center">
                   <p className="text-base font-semibold text-foreground">
                     {rates.length === 0
-                      ? "No scrap rates published yet"
+                      ? "No scrap rates available right now."
                       : "No scrap items found"}
                   </p>
                   <p className="mt-2 text-sm text-muted">
                     {rates.length === 0
-                      ? "Rates will appear here as soon as they are configured."
+                      ? "Please check back soon."
                       : "Try searching for another item."}
                   </p>
                 </div>

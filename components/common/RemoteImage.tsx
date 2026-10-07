@@ -5,6 +5,7 @@ interface RemoteImageProps {
   alt: string;
   className?: string;
   loading?: "lazy" | "eager";
+  onError?: () => void;
 }
 
 /**
@@ -17,6 +18,7 @@ export default function RemoteImage({
   alt,
   className,
   loading = "lazy",
+  onError,
 }: RemoteImageProps) {
   return (
     <img
@@ -25,6 +27,7 @@ export default function RemoteImage({
       className={className}
       loading={loading}
       decoding="async"
+      onError={onError}
     />
   );
 }

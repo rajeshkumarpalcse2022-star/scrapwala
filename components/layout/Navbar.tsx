@@ -88,10 +88,10 @@ export default function Navbar() {
 
   return (
     <>
-    <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+    <header className="sticky top-0 z-50 border-b border-black/10 bg-brand-cyan">
       <Container>
         <nav className="flex h-16 items-center justify-between" aria-label="Main navigation">
-          <Link href="/" className="flex items-center gap-2.5 font-bold text-xl text-primary">
+          <Link href="/" className="flex items-center gap-2.5 font-bold text-xl text-foreground">
             <Recycle className="h-6 w-6" aria-hidden="true" />
             <span>ScrapWala</span>
           </Link>
@@ -232,10 +232,10 @@ export default function Navbar() {
             aria-hidden="true"
           />
           <div className="fixed inset-y-0 right-0 flex w-full max-w-sm flex-col bg-card shadow-xl">
-            <div className="flex items-center justify-between border-b border-border px-4 py-4">
+            <div className="flex items-center justify-between border-b border-black/10 bg-brand-cyan px-4 py-4">
               <Link
                 href="/"
-                className="flex items-center gap-2.5 font-bold text-xl text-primary"
+                className="flex items-center gap-2.5 font-bold text-xl text-foreground"
                 onClick={() => setMobileOpen(false)}
               >
                 <Recycle className="h-6 w-6" aria-hidden="true" />

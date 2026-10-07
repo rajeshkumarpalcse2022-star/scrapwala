@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Bike, Truck, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import RemoteImage from "@/components/common/RemoteImage";
 import { cn } from "@/lib/utils";
 import { VEHICLE_OPTIONS } from "@/lib/constants/pickup";
 import type { SelectedVehicle, VehicleId } from "@/types/pickup";
@@ -11,9 +12,9 @@ interface VehicleSelectionProps {
   onNext: (vehicle: SelectedVehicle) => void;
 }
 
-const vehicleIcons: Record<VehicleId, typeof Bike> = {
-  small: Bike,
-  large: Truck,
+const vehicleImages: Record<VehicleId, string> = {
+  small: "/images/vehicle-small.jpg",
+  large: "/images/vehicle-large.jpg",
 };
 
 const vehicleDescriptions: Record<VehicleId, string> = {
@@ -46,7 +47,6 @@ export default function VehicleSelection({
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {VEHICLE_OPTIONS.map((option) => {
-          const Icon = vehicleIcons[option.id];
           const isSelected = choice === option.id;
 
           return (
@@ -58,7 +58,7 @@ export default function VehicleSelection({
                 setError("");
               }}
               className={cn(
-                "relative flex flex-col items-start rounded-xl border-2 p-5 text-left transition-all",
+                "relative flex flex-col overflow-hidden rounded-xl border-2 text-left transition-all",
                 "hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
                 isSelected
                   ? "border-primary bg-primary-light"
@@ -67,29 +67,27 @@ export default function VehicleSelection({
               aria-pressed={isSelected}
               aria-label={`Select ${option.name} vehicle, ${option.label}`}
             >
-              <div
-                className={cn(
-                  "mb-3 flex h-12 w-12 items-center justify-center rounded-lg",
-                  isSelected ? "bg-primary/10" : "bg-muted-light"
-                )}
-              >
-                <Icon
-                  className={cn(
-                    "h-6 w-6",
-                    isSelected ? "text-primary" : "text-muted"
-                  )}
-                  aria-hidden="true"
-                />
+              <RemoteImage
+                src={vehicleImages[option.id]}
+                alt=""
+                className="aspect-[3/1] w-full object-cover"
+                loading="lazy"
+              />
+
+              <div className="flex flex-1 flex-col p-5">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-foreground">
+                    {option.name}
+                  </h3>
+                  <span className="rounded-full bg-muted-light px-2 py-0.5 text-xs font-medium text-muted">
+                    {option.label}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-muted">
+                  {vehicleDescriptions[option.id]}
+                </p>
               </div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-foreground">{option.name}</h3>
-                <span className="rounded-full bg-muted-light px-2 py-0.5 text-xs font-medium text-muted">
-                  {option.label}
-                </span>
-              </div>
-              <p className="mt-1 text-sm text-muted">
-                {vehicleDescriptions[option.id]}
-              </p>
+
               {isSelected && (
                 <span className="absolute right-3 top-3 h-3 w-3 rounded-full bg-primary ring-4 ring-primary/20" />
               )}

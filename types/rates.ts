@@ -8,4 +8,5 @@ export interface PublicRateView {
   minRate: number;
   maxRate: number;
   unit: string;
+  isActive: boolean;
 }

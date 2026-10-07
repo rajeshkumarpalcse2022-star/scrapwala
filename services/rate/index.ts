@@ -232,6 +232,7 @@ export interface PublicRateDTO {
   minRate: number;
   maxRate: number;
   unit: "kg" | "piece" | "unit";
+  isActive: boolean;
 }
 
 function effectiveWindowFilter() {
@@ -349,6 +350,7 @@ export async function listPublicRates(): Promise<PublicRateDTO[]> {
         minRate: rate.minRate,
         maxRate: rate.maxRate,
         unit: rate.unit,
+        isActive: rate.isActive && sub.isActive && parent.isActive,
       };
     })
     .filter((r): r is PublicRateDTO => r !== null);
