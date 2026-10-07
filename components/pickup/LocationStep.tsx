@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PickupAddress } from "@/types/pickup";
 import { INDIAN_STATES } from "@/lib/constants/pickup";
 import { cn } from "@/lib/utils";
-import MapPicker from "@/components/pickup/MapPicker";
+import MapPicker, { type MapCoords } from "@/components/pickup/MapPicker";
 import {
   CheckCircle,
   XCircle,
@@ -40,6 +40,90 @@ type ServiceabilityState =
   | "not_serviceable"
   | "error";
 
+/** Button lifecycle for "Pickup My Current Location". */
+type LocateState = "idle" | "locating" | "geocoding" | "success";
+
+interface GeocodeResult {
+  city: string;
+  state: string;
+  pinCode: string;
+}
+
+interface GeocodeOutcome {
+  /** Reverse-geocoding request succeeded. */
+  ok: boolean;
+  /** At least one of city/state/PIN was detected. */
+  filled: boolean;
+  /** A newer lookup superseded this one (its result is applied instead). */
+  superseded: boolean;
+}
+
+const GEO_SUCCESS_RESET_MS = 2500;
+const GEOCODE_DEBOUNCE_MS = 500;
+const GEOCODE_KEY_PRECISION = 5;
+
+const GEO_MESSAGES = {
+  denied:
+    "Location permission was denied. Please allow location access or enter your address manually.",
+  unavailable:
+    "Unable to detect your current location. Please try again or enter your address manually.",
+  timeout: "Location detection timed out. Please try again.",
+  unsupported:
+    "Location detection is not supported by this browser. Please enter your address manually.",
+} as const;
+
+const GEOCODE_NOTICE =
+  "Location detected, but we couldn't automatically fill the address. Please enter the missing details manually.";
+
+const NO_COORDS_ERROR =
+  "Please set your pickup location — use the current-location button or move the map.";
+
+function geoErrorMessage(code: number): string {
+  switch (code) {
+    case 1:
+      return GEO_MESSAGES.denied;
+    case 3:
+      return GEO_MESSAGES.timeout;
+    default:
+      return GEO_MESSAGES.unavailable;
+  }
+}
+
+function coordKey(coords: MapCoords): string {
+  return `${coords.latitude.toFixed(GEOCODE_KEY_PRECISION)},${coords.longitude.toFixed(
+    GEOCODE_KEY_PRECISION
+  )}`;
+}
+
+function round6(n: number): number {
+  return Math.round(n * 1e6) / 1e6;
+}
+
+/** Reverse geocoding can return state names outside our select list. */
+function matchIndianState(raw: string): string | null {
+  const value = raw.trim().toLowerCase();
+  if (!value) return null;
+
+  const exact = INDIAN_STATES.find((state) => state.toLowerCase() === value);
+  if (exact) return exact;
+
+  return (
+    INDIAN_STATES.find((state) => {
+      const name = state.toLowerCase();
+      return name.includes(value) || value.includes(name);
+    }) ?? null
+  );
+}
+
+function sanitizePin(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  return digits.length === 6 ? digits : "";
+}
+
+function hasAnyAddressValue(result: GeocodeResult): boolean {
+  return Boolean(result.city || result.state || result.pinCode);
+}
+
 export default function LocationStep({
   initialData,
   onNext,
@@ -54,7 +138,32 @@ export default function LocationStep({
   const [serviceability, setServiceability] =
     useState<ServiceabilityState>("idle");
   const [serviceableArea, setServiceableArea] = useState<string | null>(null);
+  const [locateState, setLocateState] = useState<LocateState>("idle");
+  const [geoError, setGeoError] = useState<string | null>(null);
+  const [geocodeNotice, setGeocodeNotice] = useState<string | null>(null);
+
   const checkIdRef = useRef(0);
+  const addressRef = useRef(address);
+  const geoRequestIdRef = useRef(0);
+  const geoBusyRef = useRef(false);
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const geocodeSeqRef = useRef(0);
+  const lastGeocodeKeyRef = useRef<string | null>(null);
+  const lastGeocodeResultRef = useRef<GeocodeResult | null>(null);
+  const inflightKeyRef = useRef<string | null>(null);
+  const inflightPromiseRef = useRef<Promise<GeocodeResult | null> | null>(null);
+
+  useEffect(() => {
+    addressRef.current = address;
+  }, [address]);
+
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+      if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
+    };
+  }, []);
 
   const updateField = (field: keyof PickupAddress, value: string) => {
     setAddress((prev) => ({ ...prev, [field]: value }));
@@ -72,23 +181,7 @@ export default function LocationStep({
     }
   };
 
-  const handleConfirmLocation = (coords: {
-    latitude: number;
-    longitude: number;
-  }) => {
-    setAddress((prev) => ({
-      ...prev,
-      latitude: coords.latitude,
-      longitude: coords.longitude,
-    }));
-    setErrors((prev) => ({ ...prev, latitude: undefined, longitude: undefined }));
-    runServiceabilityCheck(
-      { latitude: coords.latitude, longitude: coords.longitude },
-      address.pinCode
-    );
-  };
-
-  // Advisory serviceability preview — event-driven (map confirm / PIN entry);
+  // Advisory serviceability preview — event-driven (map move / PIN entry);
   // the server re-validates on booking.
   async function runServiceabilityCheck(
     coords: { latitude?: number | null; longitude?: number | null },
@@ -134,6 +227,203 @@ export default function LocationStep({
     }
   }
 
+  /** Reverse geocode with cache + in-flight coalescing (identical coords). */
+  async function fetchReverseGeocode(
+    coords: MapCoords
+  ): Promise<GeocodeResult | null> {
+    const key = coordKey(coords);
+
+    if (lastGeocodeKeyRef.current === key && lastGeocodeResultRef.current) {
+      return lastGeocodeResultRef.current;
+    }
+    if (inflightKeyRef.current === key && inflightPromiseRef.current) {
+      return inflightPromiseRef.current;
+    }
+
+    const request = (async (): Promise<GeocodeResult | null> => {
+      try {
+        const params = new URLSearchParams({
+          latitude: String(coords.latitude),
+          longitude: String(coords.longitude),
+        });
+        const res = await fetch(`/api/geocode/reverse?${params}`, {
+          cache: "no-store",
+        });
+        const json = (await res.json().catch(() => null)) as {
+          success?: boolean;
+          data?: Partial<GeocodeResult>;
+        } | null;
+        if (!res.ok || !json?.success || !json.data) return null;
+        return {
+          city: typeof json.data.city === "string" ? json.data.city : "",
+          state: typeof json.data.state === "string" ? json.data.state : "",
+          pinCode:
+            typeof json.data.pinCode === "string" ? json.data.pinCode : "",
+        };
+      } catch {
+        return null;
+      } finally {
+        if (inflightKeyRef.current === key) {
+          inflightKeyRef.current = null;
+          inflightPromiseRef.current = null;
+        }
+      }
+    })();
+
+    inflightKeyRef.current = key;
+    inflightPromiseRef.current = request;
+
+    const result = await request;
+    if (result) {
+      lastGeocodeKeyRef.current = key;
+      lastGeocodeResultRef.current = result;
+    }
+    return result;
+  }
+
+  /**
+   * Fills City / State / PIN from coordinates. Never fabricates values —
+   * when the lookup fails or fields are missing the user enters them
+   * manually (a notice explains what happened).
+   */
+  async function resolveAddressForCoords(
+    coords: MapCoords
+  ): Promise<GeocodeOutcome> {
+    const seq = ++geocodeSeqRef.current;
+    setGeocodeNotice(null);
+
+    const result = await fetchReverseGeocode(coords);
+
+    if (seq !== geocodeSeqRef.current) {
+      return { ok: result !== null, filled: false, superseded: true };
+    }
+
+    if (!result) {
+      setGeocodeNotice(GEOCODE_NOTICE);
+      return { ok: false, filled: false, superseded: false };
+    }
+
+    setAddress((prev) => ({
+      ...prev,
+      city: result.city,
+      state: matchIndianState(result.state) ?? "",
+      pinCode: sanitizePin(result.pinCode),
+    }));
+    setErrors((prev) =>
+      prev.city || prev.state || prev.pinCode
+        ? { ...prev, city: undefined, state: undefined, pinCode: undefined }
+        : prev
+    );
+
+    const filled = hasAnyAddressValue(result);
+    if (!filled) setGeocodeNotice(GEOCODE_NOTICE);
+
+    // Serviceability preview should reflect the freshly detected PIN too.
+    runServiceabilityCheck(
+      coords,
+      sanitizePin(result.pinCode) || addressRef.current.pinCode
+    );
+
+    return { ok: true, filled, superseded: false };
+  }
+
+  /** Debounced lookup after the user moves the map. */
+  function scheduleReverseGeocode(coords: MapCoords) {
+    if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
+    geocodeTimerRef.current = setTimeout(() => {
+      geocodeTimerRef.current = null;
+      void resolveAddressForCoords(coords);
+    }, GEOCODE_DEBOUNCE_MS);
+  }
+
+  /** Map stopped moving after user interaction: store coords, then look up. */
+  const handleCoordsChange = (coords: MapCoords) => {
+    const current = addressRef.current;
+    if (
+      current.latitude === coords.latitude &&
+      current.longitude === coords.longitude
+    ) {
+      return;
+    }
+
+    setAddress((prev) => ({
+      ...prev,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+    }));
+    setErrors((prev) =>
+      prev.latitude || prev.longitude
+        ? { ...prev, latitude: undefined, longitude: undefined }
+        : prev
+    );
+    setGeoError(null);
+    runServiceabilityCheck(coords, current.pinCode);
+    scheduleReverseGeocode(coords);
+  };
+
+  const handleCurrentLocation = () => {
+    if (geoBusyRef.current) return;
+
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGeoError(GEO_MESSAGES.unsupported);
+      return;
+    }
+
+    const requestId = ++geoRequestIdRef.current;
+    geoBusyRef.current = true;
+    setGeoError(null);
+    setGeocodeNotice(null);
+    if (successTimerRef.current) {
+      clearTimeout(successTimerRef.current);
+      successTimerRef.current = null;
+    }
+    setLocateState("locating");
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (requestId !== geoRequestIdRef.current) return;
+
+        const coords: MapCoords = {
+          latitude: round6(pos.coords.latitude),
+          longitude: round6(pos.coords.longitude),
+        };
+
+        // 1-2. Store real coordinates — the value prop recenters the map
+        // and moves the marker to the GPS position.
+        setAddress((prev) => ({ ...prev, ...coords }));
+        setErrors((prev) => ({ ...prev, latitude: undefined, longitude: undefined }));
+        runServiceabilityCheck(coords, addressRef.current.pinCode);
+
+        // 3. Reverse geocode → auto-fill City / State / PIN.
+        setLocateState("geocoding");
+        void resolveAddressForCoords(coords).then((outcome) => {
+          if (requestId !== geoRequestIdRef.current) return;
+          geoBusyRef.current = false;
+
+          if (!outcome.ok || outcome.superseded) {
+            // resolveAddressForCoords already surfaced the notice (unless a
+            // newer lookup owns the messaging).
+            setLocateState("idle");
+            return;
+          }
+
+          setLocateState("success");
+          successTimerRef.current = setTimeout(() => {
+            successTimerRef.current = null;
+            if (requestId === geoRequestIdRef.current) setLocateState("idle");
+          }, GEO_SUCCESS_RESET_MS);
+        });
+      },
+      (error) => {
+        if (requestId !== geoRequestIdRef.current) return;
+        geoBusyRef.current = false;
+        setLocateState("idle");
+        setGeoError(geoErrorMessage(error.code));
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  };
+
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof PickupAddress, string>> = {};
 
@@ -172,9 +462,19 @@ export default function LocationStep({
       newErrors.pinCode = "Please enter a valid 6-digit PIN code.";
     }
 
-    if (typeof address.latitude !== "number" || typeof address.longitude !== "number") {
-      newErrors.latitude = "Please confirm your pickup location on the map.";
-      newErrors.longitude = "Please confirm your pickup location on the map.";
+    const latMissing =
+      typeof address.latitude !== "number" || !Number.isFinite(address.latitude);
+    const lngMissing =
+      typeof address.longitude !== "number" ||
+      !Number.isFinite(address.longitude);
+
+    if (latMissing || lngMissing) {
+      newErrors.latitude = NO_COORDS_ERROR;
+      newErrors.longitude = NO_COORDS_ERROR;
+    } else if (address.latitude! < -90 || address.latitude! > 90) {
+      newErrors.latitude = "Latitude must be between -90 and 90.";
+    } else if (address.longitude! < -180 || address.longitude! > 180) {
+      newErrors.longitude = "Longitude must be between -180 and 180.";
     }
 
     setErrors(newErrors);
@@ -194,6 +494,21 @@ export default function LocationStep({
       hasError ? "border-destructive" : "border-border"
     );
 
+  const locating = locateState === "locating" || locateState === "geocoding";
+  const spinner = (
+    <Loader2
+      className="h-4 w-4 animate-spin motion-reduce:animate-none"
+      aria-hidden="true"
+    />
+  );
+
+  const locationButtonContent = {
+    idle: { icon: <MapPin className="h-4 w-4" aria-hidden="true" />, label: "Pickup My Current Location" },
+    locating: { icon: spinner, label: "Detecting Location..." },
+    geocoding: { icon: spinner, label: "Getting Address..." },
+    success: { icon: <CheckCircle className="h-4 w-4" aria-hidden="true" />, label: "Location Detected" },
+  }[locateState];
+
   return (
     <form onSubmit={handleSubmit} noValidate>
       <h2 className="text-2xl font-bold text-foreground">Pickup Location</h2>
@@ -211,19 +526,58 @@ export default function LocationStep({
                 ? { latitude: address.latitude, longitude: address.longitude }
                 : null
             }
-            onConfirm={handleConfirmLocation}
+            onChange={handleCoordsChange}
           />
-          {errors.latitude && (
+          {(errors.latitude || errors.longitude) && (
             <p className="mt-2 text-sm text-destructive" role="alert">
-              {errors.latitude}
+              {errors.latitude || errors.longitude}
             </p>
           )}
+        </div>
+
+        {/* Main location action */}
+        <div>
+          <button
+            type="button"
+            onClick={handleCurrentLocation}
+            disabled={locating}
+            className={cn(
+              "inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark",
+              "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+            )}
+          >
+            {locationButtonContent.icon}
+            {locationButtonContent.label}
+          </button>
+
+          {geoError && (
+            <p className="mt-2 text-sm text-destructive" role="alert">
+              {geoError}
+            </p>
+          )}
+          {geocodeNotice && (
+            <p className="mt-2 text-sm text-muted" role="status">
+              {geocodeNotice}
+            </p>
+          )}
+        </div>
+
+        {/* Pickup point caption */}
+        <div className="text-sm text-muted">
+          <p className="font-medium text-foreground">Pickup Point</p>
+          <p className="mt-0.5">
+            Move the map so the pin sits on your pickup spot.
+          </p>
         </div>
 
         {/* Advisory serviceability preview */}
         {serviceability === "checking" && (
           <div className="flex items-center gap-2 rounded-lg bg-muted-light px-4 py-3 text-sm text-muted">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />
+            <Loader2
+              className="h-4 w-4 animate-spin text-primary motion-reduce:animate-none"
+              aria-hidden="true"
+            />
             Checking serviceability…
           </div>
         )}

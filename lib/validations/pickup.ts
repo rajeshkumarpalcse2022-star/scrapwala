@@ -3,13 +3,14 @@ import { WEIGHT_RANGES } from "@/lib/constants/pickup"
 
 export const pickupAddressSchema = z.object({
   fullName: z.string().min(1),
-  phone: z.string().regex(/^\+?[1-9]\d{9,14}$/),
+  phone: z.string().regex(/^[6-9]\d{9}$/),
   houseFlatBuilding: z.string().min(1),
   streetArea: z.string().min(1),
   landmark: z.string().optional(),
   city: z.string().min(1),
   state: z.string().min(1),
   pinCode: z.string().regex(/^\d{6}$/),
+  addressType: z.enum(["home", "office", "other"]).optional(),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180)
 })

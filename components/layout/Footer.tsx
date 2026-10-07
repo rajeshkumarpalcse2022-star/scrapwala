@@ -21,17 +21,17 @@ const footerLinks = {
 
 export default function Footer() {
   return (
-    <footer className="border-t border-black/10 bg-brand-cyan">
+    <footer className="border-t border-border" style={{ backgroundColor: "#E4F0E7" }}>
       <Container>
         <div className="py-12 lg:py-16">
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {/* Brand */}
             <div className="sm:col-span-2 lg:col-span-1">
-              <Link href="/" className="inline-flex items-center gap-2.5 font-bold text-xl text-foreground">
+              <Link href="/" className="inline-flex items-center gap-2.5 font-bold text-xl text-primary">
                 <Recycle className="h-6 w-6" aria-hidden="true" />
                 <span>ScrapWala</span>
               </Link>
-              <p className="mt-4 max-w-xs text-sm leading-relaxed text-foreground/90">
+              <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted">
                 A modern doorstep scrap pickup and recycling platform. Turn your unused scrap into value
                 while contributing to a greener planet.
               </p>
@@ -47,7 +47,7 @@ export default function Footer() {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-foreground/90 transition-colors hover:text-foreground hover:underline"
+                      className="text-sm text-muted transition-colors hover:text-primary"
                     >
                       {link.label}
                     </Link>
@@ -66,7 +66,7 @@ export default function Footer() {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-foreground/90 transition-colors hover:text-foreground hover:underline"
+                      className="text-sm text-muted transition-colors hover:text-primary"
                     >
                       {link.label}
                     </Link>
@@ -80,7 +80,7 @@ export default function Footer() {
               <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground">
                 Contact
               </h3>
-              <ul className="mt-4 space-y-3 text-sm text-foreground/90">
+              <ul className="mt-4 space-y-3 text-sm text-muted">
                 <li>hello@scrapwala.example</li>
               </ul>
               <h3 className="mt-6 text-sm font-semibold uppercase tracking-wider text-foreground">
@@ -91,7 +91,7 @@ export default function Footer() {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-foreground/90 transition-colors hover:text-foreground hover:underline"
+                      className="text-sm text-muted transition-colors hover:text-primary"
                     >
                       {link.label}
                     </Link>
@@ -103,7 +103,7 @@ export default function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="border-t border-foreground/15 py-6 text-center text-sm text-foreground/90">
+        <div className="border-t border-border py-6 text-center text-sm text-muted">
           &copy; {new Date().getFullYear()} ScrapWala. All rights reserved.
         </div>
       </Container>

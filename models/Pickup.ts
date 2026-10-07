@@ -19,6 +19,7 @@ export interface IPickupAddress {
   city: string;
   state: string;
   pinCode: string;
+  addressType?: "home" | "office" | "other";
   latitude?: number;
   longitude?: number;
 }
@@ -85,6 +86,7 @@ const PickupAddressSchema = new Schema<IPickupAddress>(
     city: { type: String, required: true },
     state: { type: String, required: true },
     pinCode: { type: String, required: true },
+    addressType: { type: String, enum: ["home", "office", "other"] },
     latitude: { type: Number },
     longitude: { type: Number },
   },

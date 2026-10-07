@@ -43,6 +43,7 @@ interface ConfirmedPickup {
     city: string;
     state: string;
     pinCode: string;
+    addressType?: string;
     latitude?: number;
     longitude?: number;
   };
@@ -267,6 +268,7 @@ export default function PickupPage() {
             city: address.city,
             state: address.state,
             pinCode: address.pinCode,
+            addressType: address.addressType,
             latitude: address.latitude,
             longitude: address.longitude,
           },

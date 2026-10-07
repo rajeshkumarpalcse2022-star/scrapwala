@@ -104,6 +104,7 @@ export async function createPickup(
       city: data.address.city,
       state: data.address.state,
       pinCode: data.address.pinCode,
+      addressType: data.address.addressType || undefined,
       latitude: data.address.latitude,
       longitude: data.address.longitude,
     },
