@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-import Pickup, { IPickup } from "@/models/Pickup";
+import Pickup, { IPickup, IPickupPhoto } from "@/models/Pickup";
+import PickupPhotoUpload from "@/models/PickupPhotoUpload";
 import Counter from "@/models/Counter";
 import User from "@/models/User";
 import connectDB from "@/lib/db/mongoose";
@@ -13,7 +14,12 @@ import {
   markNewPickupUnseenForCollector,
 } from "@/services/pickup-view";
 import { checkServiceabilityByLocation } from "@/services/location";
-import { findActiveTimeSlot } from "@/services/time-slot";
+import {
+  findActiveTimeSlotForDate,
+  releaseSlotCapacity,
+  reserveSlotCapacity,
+} from "@/services/time-slot";
+import { istDateKeyFromInstant, istDayRange, todayIstKey } from "@/lib/utils/timezone";
 import { PICKUP_STATUS_LABELS } from "@/lib/constants/pickup";
 
 async function generatePickupId(): Promise<string> {
@@ -26,19 +32,89 @@ async function generatePickupId(): Promise<string> {
   return `PU-${String(counter.sequence).padStart(6, "0")}`;
 }
 
+/**
+ * Claim one unit of slot capacity, run `write`, and hand the seat back if
+ * the write fails. Reserving BEFORE the insert (instead of counting after)
+ * is what stops two simultaneous last-seat bookings from both succeeding;
+ * the rollback keeps a failed write from burning a seat.
+ */
+async function withReservedSlotCapacity<T>(
+  slot: { id: string; startTime: string; endTime: string; capacity: number },
+  dateKey: string,
+  write: () => Promise<T>
+): Promise<T> {
+  await reserveSlotCapacity(slot, dateKey, slot.capacity);
+
+  try {
+    return await write();
+  } catch (error) {
+    try {
+      await releaseSlotCapacity(slot.id, dateKey);
+    } catch (releaseError) {
+      // Never mask the original booking failure — the stale counter is
+      // repaired by the next reservation attempt for that day.
+      console.error(
+        `Failed to release slot capacity for ${slot.id} on ${dateKey}:`,
+        releaseError
+      );
+    }
+    throw error;
+  }
+}
+
+/**
+ * Cancel a pickup through a single status compare-and-set so the slot
+ * reservation is released exactly once, even if admin and collector cancel
+ * at the same moment. Bookings made before reservations existed carry no
+ * `slotReservation` and therefore release nothing they never reserved.
+ *
+ * Returns true when this call performed the cancellation.
+ */
+async function cancelPickupAndRelease(pickup: IPickup): Promise<boolean> {
+  const cancelled = await Pickup.findOneAndUpdate(
+    { pickupId: pickup.pickupId, status: { $ne: "cancelled" } },
+    { $set: { status: "cancelled" } },
+    { returnDocument: "after" }
+  );
+
+  if (!cancelled) return false;
+
+  const reservation = cancelled.slotReservation;
+  if (reservation?.timeSlot && reservation.date) {
+    try {
+      await releaseSlotCapacity(String(reservation.timeSlot), reservation.date);
+    } catch (error) {
+      // Cancellation is already persisted; a stale counter only fails
+      // closed (no overbooking) and is repaired on the next reservation.
+      console.error(
+        `Failed to release slot capacity for pickup ${pickup.pickupId}:`,
+        error
+      );
+    }
+  }
+
+  return true;
+}
+
 export async function createPickup(
   data: CreatePickupInput,
   customerId: string
 ): Promise<IPickup> {
   await connectDB();
 
-  const scheduledDate = new Date(data.scheduledDate);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Business timezone (IST): the customer picks a calendar day, which is
+  // always an IST day. Normalise it to that day's IST midnight so every
+  // later capacity query can slice the day with the same IST range.
+  const submittedDate = new Date(data.scheduledDate);
+  if (Number.isNaN(submittedDate.getTime())) {
+    throw new ApiError(400, "Invalid pickup date", "INVALID_DATE");
+  }
 
-  if (scheduledDate < today) {
+  const dateKey = istDateKeyFromInstant(submittedDate);
+  if (dateKey < todayIstKey()) {
     throw new ApiError(400, "Pickup date cannot be in the past", "INVALID_DATE");
   }
+  const scheduledDate = istDayRange(dateKey).start;
 
   // Server-authoritative serviceability from the confirmed coordinates
   // (spec §17) — rejected BEFORE any pickup document or counter is written.
@@ -57,9 +133,11 @@ export async function createPickup(
   }
 
   // The submitted window must match an active admin-configured slot (§17).
-  const timeSlot = await findActiveTimeSlot(
+  // The capacity it returns already includes any override for this date.
+  const timeSlot = await findActiveTimeSlotForDate(
     data.timeSlot.startTime,
-    data.timeSlot.endTime
+    data.timeSlot.endTime,
+    dateKey
   );
 
   if (!timeSlot) {
@@ -91,39 +169,100 @@ export async function createPickup(
 
   const estimatedAmount = items.reduce((sum, item) => sum + item.amount, 0);
 
-  const pickup = await Pickup.create({
-    pickupId,
-    customer: new mongoose.Types.ObjectId(customerId),
-    vehicle: data.vehicle,
-    address: {
-      fullName: data.address.fullName,
-      phone: data.address.phone,
-      houseFlatBuilding: data.address.houseFlatBuilding,
-      streetArea: data.address.streetArea,
-      landmark: data.address.landmark || undefined,
-      city: data.address.city,
-      state: data.address.state,
-      pinCode: data.address.pinCode,
-      addressType: data.address.addressType || undefined,
-      latitude: data.address.latitude,
-      longitude: data.address.longitude,
-    },
-    location: serviceability.location
-      ? new mongoose.Types.ObjectId(serviceability.location.id)
-      : undefined,
-    scheduledDate,
-    timeSlot: {
-      startTime: data.timeSlot.startTime,
-      endTime: data.timeSlot.endTime,
-    },
-    items,
-    expectedWeight: data.expectedWeight,
-    estimatedAmount,
-    actualAmount: 0,
-    status: "scheduled",
-    paymentStatus: "pending",
-    notes: data.notes || undefined,
-  });
+  // Resolve staged scrap photos: every publicId must belong to THIS
+  // customer's unattached staging records. The client URL is ignored — the
+  // server-recorded Cloudinary URL is what gets stored, so a forged URL or
+  // another customer's publicId can never be attached.
+  let photos: IPickupPhoto[] = [];
+  if (data.photos && data.photos.length > 0) {
+    const staged = await PickupPhotoUpload.find({
+      customer: new mongoose.Types.ObjectId(customerId),
+      publicId: { $in: data.photos.map((p) => p.publicId) },
+      pickup: null,
+    }).lean();
+
+    const stagedByPublicId = new Map(
+      staged.map((s) => [s.publicId, s] as const)
+    );
+
+    photos = data.photos.map((p) => {
+      const record = stagedByPublicId.get(p.publicId);
+      if (!record) {
+        throw new ApiError(
+          400,
+          "One of the uploaded photos is no longer available. Please re-upload and try again.",
+          "PHOTO_NOT_FOUND"
+        );
+      }
+      return {
+        url: record.url,
+        publicId: record.publicId,
+        uploadedAt: record.createdAt,
+      };
+    });
+  }
+
+  const pickup = await withReservedSlotCapacity(timeSlot, dateKey, () =>
+    Pickup.create({
+      pickupId,
+      customer: new mongoose.Types.ObjectId(customerId),
+      vehicle: data.vehicle,
+      address: {
+        fullName: data.address.fullName,
+        phone: data.address.phone,
+        houseFlatBuilding: data.address.houseFlatBuilding,
+        streetArea: data.address.streetArea,
+        landmark: data.address.landmark || undefined,
+        city: data.address.city,
+        state: data.address.state,
+        pinCode: data.address.pinCode,
+        addressType: data.address.addressType || undefined,
+        latitude: data.address.latitude,
+        longitude: data.address.longitude,
+      },
+      location: serviceability.location
+        ? new mongoose.Types.ObjectId(serviceability.location.id)
+        : undefined,
+      scheduledDate,
+      timeSlot: {
+        startTime: timeSlot.startTime,
+        endTime: timeSlot.endTime,
+      },
+      timeSlotRef: new mongoose.Types.ObjectId(timeSlot.id),
+      slotReservation: {
+        timeSlot: new mongoose.Types.ObjectId(timeSlot.id),
+        date: dateKey,
+      },
+      items,
+      expectedWeight: data.expectedWeight,
+      photos,
+      estimatedAmount,
+      actualAmount: 0,
+      status: "scheduled",
+      paymentStatus: "pending",
+      notes: data.notes || undefined,
+    })
+  );
+
+  // The booking owns the photos now: mark their staging rows attached so the
+  // TTL purge never touches them. Best-effort — the pickup already stores
+  // the URLs, so a failed bookkeeping write only leaves harmless stale rows.
+  if (photos.length > 0) {
+    try {
+      await PickupPhotoUpload.updateMany(
+        {
+          customer: new mongoose.Types.ObjectId(customerId),
+          publicId: { $in: photos.map((p) => p.publicId) },
+        },
+        { $set: { pickup: pickup._id }, $unset: { purgeAt: 1 } }
+      );
+    } catch (error) {
+      console.error(
+        `Failed to attach staged photos for pickup ${pickup.pickupId}:`,
+        error
+      );
+    }
+  }
 
   // The pickup exists now: put it on every admin's unseen radar. Failures
   // must never break the customer's booking (mirrors assignment notify).
@@ -316,6 +455,11 @@ export async function getAdminPickupById(pickupId: string) {
   return pickup;
 }
 
+/**
+ * The admin can no longer move a pickup through the timeline by hand —
+ * assignment and every collector action advance `status` on their own.
+ * Cancellation is the single deliberate admin override that remains.
+ */
 export async function updateAdminPickupStatus(
   pickupId: string,
   status: string
@@ -326,14 +470,23 @@ export async function updateAdminPickupStatus(
     throw new ApiError(400, "Invalid status value", "VALIDATION_ERROR");
   }
 
+  if (status !== "cancelled") {
+    throw new ApiError(
+      400,
+      "Pickup status advances automatically; only cancellation is allowed",
+      "AUTOMATIC_STATUS"
+    );
+  }
+
   const pickup = await Pickup.findOne({ pickupId });
 
   if (!pickup) {
     throw new ApiError(404, "Pickup not found", "NOT_FOUND");
   }
 
-  pickup.status = status as IPickup["status"];
-  await pickup.save();
+  // Single compare-and-set: admin and collector cancelling at the same
+  // moment still release the slot reservation exactly once.
+  await cancelPickupAndRelease(pickup);
 
   const updated = await Pickup.findOne({ pickupId })
     .select("-__v")
@@ -608,8 +761,13 @@ export async function updateCollectorPickupStatus(
     }
   }
 
-  pickup.status = newStatus as IPickup["status"];
-  await pickup.save();
+  if (newStatus === "cancelled") {
+    // Compare-and-set so the slot reservation is released exactly once.
+    await cancelPickupAndRelease(pickup);
+  } else {
+    pickup.status = newStatus as IPickup["status"];
+    await pickup.save();
+  }
 
   const updated = await Pickup.findOne({ pickupId })
     .select("-__v")

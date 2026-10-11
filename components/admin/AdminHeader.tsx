@@ -1,14 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Menu, Search, Bell } from "lucide-react";
 import { adminUser, adminNotifications } from "@/lib/constants/adminDemoData";
-
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good Morning";
-  if (hour < 17) return "Good Afternoon";
-  return "Good Evening";
-}
+import { getGreeting } from "@/lib/utils/greeting";
 
 const initials = adminUser.name
   .split(" ")
@@ -22,6 +17,16 @@ interface AdminHeaderProps {
 export default function AdminHeader({ onMenuClick }: AdminHeaderProps) {
   const unreadCount = adminNotifications.filter((n) => !n.read).length;
 
+  // Greeting depends on IST and can flip past midnight — resolve after
+  // mount so server-rendered markup never disagrees with the client.
+  const [greeting, setGreeting] = useState("");
+  useEffect(() => {
+    const update = () => setGreeting(getGreeting());
+    update();
+    const timer = setInterval(update, 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-white px-4 md:px-6">
       <div className="flex items-center gap-3">
@@ -32,7 +37,8 @@ export default function AdminHeader({ onMenuClick }: AdminHeaderProps) {
           <Menu className="h-5 w-5" />
         </button>
         <h1 className="text-lg font-semibold text-gray-900">
-          {getGreeting()}, {adminUser.name.split(" ")[0]}
+          {greeting ? `${greeting}, ` : ""}
+          {adminUser.name.split(" ")[0]}
         </h1>
       </div>
 

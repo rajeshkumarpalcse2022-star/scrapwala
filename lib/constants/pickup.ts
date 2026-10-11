@@ -37,6 +37,21 @@ export const WEIGHT_RANGES = [
 export type WeightRangeId = (typeof WEIGHT_RANGES)[number]["id"];
 
 /**
+ * Customer scrap-photo upload limits (spec: optional upload on the weight
+ * step). Enforced on the client for fast feedback and again on the server
+ * (upload route + booking attach).
+ */
+export const PICKUP_PHOTO_MAX_COUNT = 5;
+export const PICKUP_PHOTO_MAX_BYTES = 5 * 1024 * 1024; // 5 MB per image
+export const PICKUP_PHOTO_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const;
+export const PICKUP_PHOTO_FORMAT_LABEL = "JPEG, PNG or WebP";
+export const PICKUP_PHOTO_MAX_MB = 5;
+
+/**
  * MOCK DATA — Indian states for the address form.
  */
 export const INDIAN_STATES = [

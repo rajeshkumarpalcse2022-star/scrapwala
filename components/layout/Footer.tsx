@@ -23,10 +23,10 @@ export default function Footer() {
   return (
     <footer className="border-t border-border" style={{ backgroundColor: "#E4F0E7" }}>
       <Container>
-        <div className="py-12 lg:py-16">
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="py-10 lg:py-16">
+          <div className="grid grid-cols-2 gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {/* Brand */}
-            <div className="sm:col-span-2 lg:col-span-1">
+            <div className="col-span-2 sm:col-span-2 lg:col-span-1">
               <Link href="/" className="inline-flex items-center gap-2.5 font-bold text-xl text-primary">
                 <Recycle className="h-6 w-6" aria-hidden="true" />
                 <span>ScrapWala</span>

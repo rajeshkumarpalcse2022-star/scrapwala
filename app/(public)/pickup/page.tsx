@@ -5,6 +5,7 @@ import Link from "next/link";
 import type {
   PickupAddress,
   PickupDate,
+  PickupPhoto,
   ScrapCatalogGroup,
   ScrapRate,
   SelectedVehicle,
@@ -76,8 +77,12 @@ export default function PickupPage() {
   const [selectedScrap, setSelectedScrap] = useState<string[]>([]);
   const [address, setAddress] = useState<PickupAddress | null>(null);
   const [expectedWeight, setExpectedWeight] = useState<string | null>(null);
+  /** Staged scrap photos (uploaded during the weight step, attached at booking). */
+  const [scrapPhotos, setScrapPhotos] = useState<PickupPhoto[]>([]);
   const [pickupDate, setPickupDate] = useState<PickupDate | null>(null);
   const [timeSlot, setTimeSlot] = useState<TimeSlot | null>(null);
+  /** Shown on the time step when the chosen slot filled up meanwhile. */
+  const [slotNotice, setSlotNotice] = useState<string | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -217,11 +222,16 @@ export default function PickupPage() {
 
   const handleDateNext = (date: PickupDate) => {
     setPickupDate(date);
+    // Availability is per-date: a slot picked for the old date may be full
+    // on the new one, so re-choose it.
+    setTimeSlot(null);
+    setSlotNotice(null);
     goToStep(7);
   };
 
   const handleTimeNext = (slot: TimeSlot) => {
     setTimeSlot(slot);
+    setSlotNotice(null);
     goToStep(REVIEW_STEP);
   };
 
@@ -279,6 +289,7 @@ export default function PickupPage() {
           },
           items,
           expectedWeight,
+          photos: scrapPhotos.map((p) => ({ url: p.url, publicId: p.publicId })),
           estimatedAmount: 0,
           notes: undefined,
         }),
@@ -289,6 +300,17 @@ export default function PickupPage() {
       if (!response.ok) {
         if (response.status === 401) {
           throw new Error("Please log in to book a pickup.");
+        }
+        if (response.status === 409) {
+          // The slot filled up between choosing it and confirming.
+          // Send the customer back to a freshly loaded time list.
+          setSlotNotice(
+            result.message ||
+              "That time slot has just filled up. Please choose another time."
+          );
+          setTimeSlot(null);
+          goToStep(7);
+          return;
         }
         throw new Error(result.message || "Failed to create pickup");
       }
@@ -422,6 +444,8 @@ export default function PickupPage() {
               {currentStep === 4 && (
                 <WeightSelection
                   selected={expectedWeight}
+                  photos={scrapPhotos}
+                  onPhotosChange={setScrapPhotos}
                   onNext={handleWeightNext}
                   onBack={() => goToStep(3)}
                 />
@@ -448,9 +472,11 @@ export default function PickupPage() {
                 />
               )}
 
-              {currentStep === 7 && (
+              {currentStep === 7 && pickupDate && (
                 <TimeSlotSelection
+                  date={pickupDate.date}
                   selectedSlot={timeSlot}
+                  notice={slotNotice}
                   onNext={handleTimeNext}
                   onBack={() => goToStep(6)}
                 />

@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -15,9 +15,11 @@ import {
   CheckCircle2,
   Circle,
   XCircle,
-  ChevronDown,
+  X,
+  Image as ImageIcon,
   Loader2,
 } from "lucide-react";
+import RemoteImage from "@/components/common/RemoteImage";
 import {
   PICKUP_STATUS_LABELS,
   PICKUP_STATUS_COLORS,
@@ -25,6 +27,7 @@ import {
   PAYMENT_STATUS_COLORS,
   type AdminPickupStatus,
 } from "@/types/admin";
+import { TIMELINE_STAGES, reachedIndexFor } from "@/lib/constants/pickup";
 import AdminStatusBadge from "@/components/admin/AdminStatusBadge";
 import AdminModal from "@/components/admin/AdminModal";
 import { reportPickupSeen } from "@/hooks/useUnseenPickupCount";
@@ -56,6 +59,12 @@ interface PickupItem {
   amount: number;
 }
 
+interface PickupPhotoItem {
+  url: string;
+  publicId: string;
+  uploadedAt?: string;
+}
+
 interface PickupAddress {
   fullName: string;
   phone: string;
@@ -77,6 +86,7 @@ interface PickupData {
   timeSlot: { startTime: string; endTime: string };
   status: AdminPickupStatus;
   items: PickupItem[];
+  photos?: PickupPhotoItem[];
   estimatedAmount: number;
   actualAmount: number;
   paymentStatus: string;
@@ -106,33 +116,6 @@ interface CollectorsApiResponse {
   success: boolean;
   message?: string;
   data: { collectors: CollectorUser[] };
-}
-
-const timelineSteps: Array<{ key: string; label: string }> = [
-  { key: "requested", label: "Requested" },
-  { key: "scheduled", label: "Scheduled" },
-  { key: "assigned", label: "Assigned" },
-  { key: "accepted", label: "Accepted" },
-  { key: "on_the_way", label: "On the Way" },
-  { key: "arrived", label: "Arrived" },
-  { key: "weighing", label: "Weighing" },
-  { key: "payment_pending", label: "Payment" },
-  { key: "completed", label: "Completed" },
-];
-
-const statusOrder: AdminPickupStatus[] = [
-  "scheduled",
-  "assigned",
-  "accepted",
-  "on_the_way",
-  "arrived",
-  "weighing",
-  "payment_pending",
-  "completed",
-];
-
-function getTimelineIndex(status: AdminPickupStatus): number {
-  return statusOrder.indexOf(status);
 }
 
 function formatDate(dateStr: string): string {
@@ -169,7 +152,6 @@ export default function AdminPickupDetailPage({
   const [error, setError] = useState<string | null>(null);
 
   const [assignModalOpen, setAssignModalOpen] = useState(false);
-  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
 
   const [collectors, setCollectors] = useState<CollectorUser[]>([]);
@@ -177,9 +159,17 @@ export default function AdminPickupDetailPage({
   const [collectorsError, setCollectorsError] = useState<string | null>(null);
   const [assigning, setAssigning] = useState<string | null>(null);
 
-  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  /** Enlarged view of a customer scrap photo (lightbox). */
+  const [photoLightbox, setPhotoLightbox] = useState<PickupPhotoItem | null>(
+    null
+  );
 
   const router = useRouter();
+
+  // True once the pickup hits completed/cancelled — stops status polling.
+  const terminalRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -213,6 +203,9 @@ export default function AdminPickupDetailPage({
         if (!cancelled) {
           if (data.success) {
             setPickup(data.data.pickup);
+            terminalRef.current =
+              data.data.pickup.status === "completed" ||
+              data.data.pickup.status === "cancelled";
             // Actually opened this pickup's detail: clear its unseen state.
             reportPickupSeen("admin", id);
           } else {
@@ -234,6 +227,34 @@ export default function AdminPickupDetailPage({
       cancelled = true;
     };
   }, [id, router]);
+
+  // Timeline is driven by the real status — poll so a collector's action
+  // (accept / on the way / weighing / payment) shows up without a manual
+  // refresh. Stops once the pickup reaches a terminal state.
+  useEffect(() => {
+    if (terminalRef.current) return;
+    const timer = setInterval(async () => {
+      if (terminalRef.current || document.hidden) return;
+      try {
+        const response = await fetch(`/api/admin/pickups/${id}`, {
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+        const data: ApiResponse = await response.json();
+        if (!data.success || !data.data?.pickup) return;
+        const next = data.data.pickup;
+        terminalRef.current =
+          next.status === "completed" || next.status === "cancelled";
+        setPickup((prev) => {
+          if (!prev || prev.status === next.status) return prev;
+          return next;
+        });
+      } catch {
+        // Polling is best-effort; keep the last known state.
+      }
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [id]);
 
   const fetchCollectors = async () => {
     setLoadingCollectors(true);
@@ -293,37 +314,32 @@ export default function AdminPickupDetailPage({
     }
   };
 
-  const handleStatusChange = async (newStatus: AdminPickupStatus) => {
-    setUpdatingStatus(true);
-    setStatusDropdownOpen(false);
-
+  const handleCancelPickup = async () => {
+    setCancelling(true);
     try {
       const response = await fetch(`/api/admin/pickups/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: "cancelled" }),
       });
 
       if (!response.ok) {
         const data = await response.json();
-        alert(data.message || "Failed to update status");
+        alert(data.message || "Failed to cancel pickup");
         return;
       }
 
       const data: ApiResponse = await response.json();
       if (data.success && data.data?.pickup) {
         setPickup(data.data.pickup);
+        terminalRef.current = true;
+        setConfirmCancel(false);
       }
     } catch {
-      alert("Failed to update status");
+      alert("Failed to cancel pickup");
     } finally {
-      setUpdatingStatus(false);
+      setCancelling(false);
     }
-  };
-
-  const handleCancelPickup = async () => {
-    await handleStatusChange("cancelled");
-    setConfirmCancel(false);
   };
 
   const openAssignModal = () => {
@@ -385,7 +401,7 @@ export default function AdminPickupDetailPage({
     );
   }
 
-  const currentStepIndex = getTimelineIndex(pickup.status);
+  const currentStepIndex = reachedIndexFor(pickup.status);
 
   const estimatedQuantity = pickup.items
     .map((item) => `${item.estimatedWeight} ${item.unit}`)
@@ -513,6 +529,40 @@ export default function AdminPickupDetailPage({
               )}
             </div>
           </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-6">
+            <h2 className="flex items-center gap-2 text-sm font-semibold uppercase text-gray-500">
+              <ImageIcon className="h-4 w-4" />
+              Customer Scrap Photos
+            </h2>
+            {(pickup.photos ?? []).length > 0 ? (
+              <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4">
+                {(pickup.photos ?? []).map((photo, idx) => (
+                  <button
+                    key={photo.publicId || idx}
+                    type="button"
+                    onClick={() => setPhotoLightbox(photo)}
+                    title="Click to enlarge"
+                    className="group relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <RemoteImage
+                      src={photo.url}
+                      alt={`Scrap photo ${idx + 1} uploaded for ${pickup.pickupId}`}
+                      className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105 motion-reduce:transition-none"
+                      loading="lazy"
+                    />
+                    <span className="absolute inset-x-0 bottom-0 bg-black/0 px-2 py-1 text-[10px] text-white opacity-0 transition group-hover:bg-black/50 group-hover:opacity-100">
+                      View
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 rounded-lg bg-gray-50 px-3 py-6 text-center text-sm text-gray-500">
+                The customer did not upload any photos for this pickup.
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -580,43 +630,48 @@ export default function AdminPickupDetailPage({
               Pickup Timeline
             </h2>
             <div className="mt-4 space-y-0">
-              {timelineSteps.map((step, idx) => {
-                const isDone = idx <= currentStepIndex;
-                const isCurrent = idx === currentStepIndex;
-                return (
-                  <div key={step.key} className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      {isDone ? (
-                        <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                      ) : (
-                        <Circle className="h-5 w-5 text-gray-300" />
-                      )}
-                      {idx < timelineSteps.length - 1 && (
-                        <div
-                          className={`w-0.5 flex-1 ${
-                            idx < currentStepIndex
-                              ? "bg-emerald-300"
-                              : "bg-gray-200"
+              {pickup.status === "cancelled" ? (
+                <p className="rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-600">
+                  This pickup was cancelled.
+                </p>
+              ) : (
+                TIMELINE_STAGES.map((stage, idx) => {
+                  const isDone = idx < currentStepIndex;
+                  const isCurrent = idx === currentStepIndex;
+                  const isLast = idx === TIMELINE_STAGES.length - 1;
+                  return (
+                    <div key={stage} className="flex gap-3">
+                      <div className="flex flex-col items-center">
+                        {isDone || isCurrent ? (
+                          <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                        ) : (
+                          <Circle className="h-5 w-5 text-gray-300" />
+                        )}
+                        {!isLast && (
+                          <div
+                            className={`w-0.5 flex-1 ${
+                              isDone ? "bg-emerald-300" : "bg-gray-200"
+                            }`}
+                          />
+                        )}
+                      </div>
+                      <div className="pb-6">
+                        <span
+                          className={`text-sm ${
+                            isCurrent
+                              ? "font-semibold text-emerald-600"
+                              : isDone
+                              ? "font-medium text-gray-900"
+                              : "text-gray-400"
                           }`}
-                        />
-                      )}
+                        >
+                          {stage}
+                        </span>
+                      </div>
                     </div>
-                    <div className="pb-6">
-                      <span
-                        className={`text-sm ${
-                          isCurrent
-                            ? "font-semibold text-emerald-600"
-                            : isDone
-                            ? "font-medium text-gray-900"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        {step.label}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
@@ -632,38 +687,6 @@ export default function AdminPickupDetailPage({
           >
             {pickup.collector ? "Reassign Collector" : "Assign Collector"}
           </button>
-
-          <div className="relative">
-            <button
-              onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
-              disabled={updatingStatus || pickup.status === "completed" || pickup.status === "cancelled"}
-              className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {updatingStatus ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-              Change Status
-            </button>
-            {statusDropdownOpen && (
-              <div className="absolute left-0 z-20 mt-2 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                {statusOrder.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => handleStatusChange(s)}
-                    className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 ${
-                      pickup.status === s
-                        ? "font-medium text-emerald-600"
-                        : "text-gray-700"
-                    }`}
-                  >
-                    {PICKUP_STATUS_LABELS[s]}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
 
           {pickup.status !== "cancelled" && pickup.status !== "completed" && (
             <button
@@ -756,13 +779,40 @@ export default function AdminPickupDetailPage({
             </button>
             <button
               onClick={handleCancelPickup}
-              className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700"
+              disabled={cancelling}
+              className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
+              {cancelling && <Loader2 className="h-4 w-4 animate-spin" />}
               Yes, Cancel
             </button>
           </div>
         </div>
       </AdminModal>
+
+      {photoLightbox && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Enlarged scrap photo"
+          onClick={() => setPhotoLightbox(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setPhotoLightbox(null)}
+            aria-label="Close photo"
+            className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/25 focus:outline-none focus:ring-2 focus:ring-white"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <RemoteImage
+            src={photoLightbox.url}
+            alt={`Enlarged scrap photo for ${pickup.pickupId}`}
+            className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
+            loading="eager"
+          />
+        </div>
+      )}
     </div>
   );
 }

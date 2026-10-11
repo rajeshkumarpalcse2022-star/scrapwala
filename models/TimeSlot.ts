@@ -22,6 +22,8 @@ const TimeSlotSchema = new Schema<ITimeSlot>(
 );
 
 TimeSlotSchema.index({ isActive: 1 });
+// Audit confirmed no duplicate windows exist, so this index is safe to add.
+TimeSlotSchema.index({ startTime: 1, endTime: 1 }, { unique: true });
 
 export default mongoose.models.TimeSlot ||
   mongoose.model<ITimeSlot>("TimeSlot", TimeSlotSchema);

@@ -149,9 +149,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 150px;
-  height: 150px;
-  margin-bottom: 1.25rem;
+  width: 108px;
+  height: 108px;
+  margin-bottom: 1rem;
   flex-shrink: 0;
 }
 
@@ -177,7 +177,7 @@ body {
 /* Mid ring — slightly lighter fill */
 .hiw-ring-mid {
   position: absolute;
-  inset: 14px;
+  inset: 10px;
   border-radius: 9999px;
   background: rgba(187, 240, 204, 0.6);
   border: 2px solid rgba(74, 222, 128, 0.35);
@@ -190,15 +190,62 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 76px;
-  height: 76px;
+  width: 56px;
+  height: 56px;
   border-radius: 9999px;
   background: linear-gradient(145deg, #6ee7a0, #34d399);
   box-shadow: 0 2px 12px rgba(52, 211, 153, 0.3);
 }
 
 .hiw-icon-circle svg {
+  width: 22px;
+  height: 22px;
   color: #065f46;
+}
+
+/* Tablet+ — larger pulse rings */
+@media (min-width: 640px) {
+  .hiw-pulse-wrap {
+    width: 130px;
+    height: 130px;
+    margin-bottom: 1.25rem;
+  }
+
+  .hiw-ring-mid {
+    inset: 12px;
+  }
+
+  .hiw-icon-circle {
+    width: 66px;
+    height: 66px;
+  }
+
+  .hiw-icon-circle svg {
+    width: 26px;
+    height: 26px;
+  }
+}
+
+/* Desktop — original full size */
+@media (min-width: 1024px) {
+  .hiw-pulse-wrap {
+    width: 150px;
+    height: 150px;
+  }
+
+  .hiw-ring-mid {
+    inset: 14px;
+  }
+
+  .hiw-icon-circle {
+    width: 76px;
+    height: 76px;
+  }
+
+  .hiw-icon-circle svg {
+    width: 28px;
+    height: 28px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

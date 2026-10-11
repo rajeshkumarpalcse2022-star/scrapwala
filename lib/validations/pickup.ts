@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { WEIGHT_RANGES } from "@/lib/constants/pickup"
+import { WEIGHT_RANGES, PICKUP_PHOTO_MAX_COUNT } from "@/lib/constants/pickup"
 
 export const pickupAddressSchema = z.object({
   fullName: z.string().min(1),
@@ -25,6 +25,15 @@ export const pickupItemSchema = z.object({
   amount: z.number().min(0)
 })
 
+/**
+ * Shape only — the booking service ignores the client URL and re-resolves
+ * each photo from the server-side staging records owned by the caller.
+ */
+export const pickupPhotoSchema = z.object({
+  url: z.string().url(),
+  publicId: z.string().min(1).max(300)
+})
+
 export const createPickupSchema = z.object({
   vehicle: z.enum(["small", "large"]),
   address: pickupAddressSchema,
@@ -37,6 +46,10 @@ export const createPickupSchema = z.object({
     .refine((v) => WEIGHT_RANGES.some((r) => r.label === v), {
       message: "Invalid weight range"
     }),
+  photos: z
+    .array(pickupPhotoSchema)
+    .min(1, "Please upload at least one scrap photo")
+    .max(PICKUP_PHOTO_MAX_COUNT),
   estimatedAmount: z.number().min(0),
   notes: z.string().optional()
 })

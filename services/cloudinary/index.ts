@@ -153,6 +153,136 @@ export async function uploadSvg(file: File): Promise<UploadResult> {
   };
 }
 
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const PHOTO_FOLDER = "scrapwala/pickup-photos";
+const PHOTO_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+type PhotoType = "image/jpeg" | "image/png" | "image/webp";
+
+/**
+ * Detect the real image type from file signatures so a renamed text/binary
+ * file that merely carries an image extension (or MIME type) is rejected.
+ */
+function sniffPhotoType(bytes: Uint8Array): PhotoType | null {
+  if (
+    bytes.length >= 3 &&
+    bytes[0] === 0xff &&
+    bytes[1] === 0xd8 &&
+    bytes[2] === 0xff
+  ) {
+    return "image/jpeg";
+  }
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  ) {
+    return "image/png";
+  }
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  ) {
+    return "image/webp";
+  }
+  return null;
+}
+
+export async function uploadPickupPhoto(file: File): Promise<UploadResult> {
+  if (file.size <= 0) {
+    throw new ApiError(400, "Please choose an image file", "INVALID_FILE");
+  }
+  if (file.size > MAX_PHOTO_BYTES) {
+    throw new ApiError(
+      400,
+      "Each photo must be smaller than 5 MB",
+      "FILE_TOO_LARGE"
+    );
+  }
+  if (!PHOTO_MIME_TYPES.includes(file.type)) {
+    throw new ApiError(
+      400,
+      "Only JPEG, PNG and WebP images are allowed",
+      "INVALID_FILE_TYPE"
+    );
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const sniffed = sniffPhotoType(bytes);
+  if (!sniffed || sniffed !== file.type) {
+    throw new ApiError(
+      400,
+      "File content does not match a valid JPEG, PNG or WebP image",
+      "INVALID_FILE_TYPE"
+    );
+  }
+
+  const config = getConfig();
+
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signature = sign(
+    `folder=${PHOTO_FOLDER}&timestamp=${timestamp}`,
+    config.apiSecret
+  );
+
+  const extension =
+    sniffed === "image/jpeg" ? "jpg" : sniffed === "image/png" ? "png" : "webp";
+  const form = new FormData();
+  form.append(
+    "file",
+    new Blob([bytes], { type: sniffed }),
+    `scrap-photo.${extension}`
+  );
+  form.append("api_key", config.apiKey);
+  form.append("timestamp", String(timestamp));
+  form.append("folder", PHOTO_FOLDER);
+  form.append("signature", signature);
+
+  let json: { secure_url?: string; public_id?: string; error?: { message?: string } } | null =
+    null;
+  try {
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/${config.cloudName}/image/upload`,
+      { method: "POST", body: form }
+    );
+    json = await res.json().catch(() => null);
+
+    if (!res.ok || !json?.secure_url || !json?.public_id) {
+      const reason = json?.error?.message ? ` (${json.error.message})` : "";
+      throw new ApiError(
+        502,
+        `Failed to upload photo to Cloudinary${reason}`,
+        "CLOUDINARY_UPLOAD_FAILED"
+      );
+    }
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      502,
+      "Could not reach Cloudinary to upload the photo",
+      "CLOUDINARY_UNREACHABLE"
+    );
+  }
+
+  return {
+    imageUrl: json.secure_url,
+    cloudinaryPublicId: json.public_id,
+  };
+}
+
 /**
  * Best-effort cleanup of a replaced/removed Cloudinary asset.
  * Never throws: image lifecycle must not block database operations.
@@ -184,6 +314,6 @@ export async function destroyAsset(publicId: string): Promise<boolean> {
   }
 }
 
-const cloudinaryService = { uploadSvg, destroyAsset, assertValidSvg };
+const cloudinaryService = { uploadSvg, uploadPickupPhoto, destroyAsset, assertValidSvg };
 
 export default cloudinaryService;

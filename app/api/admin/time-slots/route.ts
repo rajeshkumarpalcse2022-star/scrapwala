@@ -3,13 +3,21 @@ import { ZodError } from "zod";
 import { requireRole } from "@/lib/auth/require-auth";
 import { createTimeSlotSchema } from "@/lib/validations/timeSlot";
 import { listAdminTimeSlots, createTimeSlot } from "@/services/time-slot";
+import { ApiError } from "@/lib/utils/api-error";
 import { successResponse, errorResponse } from "@/lib/utils/api-response";
 
-export async function GET() {
+/**
+ * Section A (regular time slots) with real booked/available counts.
+ * `?date=YYYY-MM-DD` selects the IST day being inspected (defaults to today).
+ */
+export async function GET(request: NextRequest) {
   try {
     await requireRole("admin");
 
-    const timeSlots = await listAdminTimeSlots();
+    const { searchParams } = new URL(request.url);
+    const date = searchParams.get("date") ?? undefined;
+
+    const timeSlots = await listAdminTimeSlots(date);
 
     return successResponse("Time slots fetched successfully", { timeSlots });
   } catch (error: unknown) {
@@ -21,6 +29,9 @@ export async function GET() {
     }
     if (message.includes("Insufficient permissions")) {
       return errorResponse("Admin access required", [], 403);
+    }
+    if (error instanceof ApiError && error.statusCode !== 500) {
+      return errorResponse(message, error.details, error.statusCode);
     }
 
     return errorResponse(message, [], 500);
@@ -53,6 +64,10 @@ export async function POST(request: NextRequest) {
     }
     if (message.includes("Insufficient permissions")) {
       return errorResponse("Admin access required", [], 403);
+    }
+    if (error instanceof ApiError && error.statusCode !== 500) {
+      // 409 duplicate window, 409 capacity below bookings, 400 invalid time.
+      return errorResponse(message, error.details, error.statusCode);
     }
     if (
       message.includes("Invalid") ||

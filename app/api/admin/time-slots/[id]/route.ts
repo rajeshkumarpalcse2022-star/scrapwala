@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { requireRole } from "@/lib/auth/require-auth";
 import { updateTimeSlotSchema } from "@/lib/validations/timeSlot";
 import { updateTimeSlot, deleteTimeSlot } from "@/services/time-slot";
+import { ApiError } from "@/lib/utils/api-error";
 import { successResponse, errorResponse } from "@/lib/utils/api-response";
 
 export async function PATCH(
@@ -35,6 +36,10 @@ export async function PATCH(
     }
     if (message.includes("Insufficient permissions")) {
       return errorResponse("Admin access required", [], 403);
+    }
+    if (error instanceof ApiError && error.statusCode !== 500) {
+      // 409 capacity below bookings / duplicate window, 400 invalid time.
+      return errorResponse(message, error.details, error.statusCode);
     }
     if (message.includes("not found")) {
       return errorResponse("Time slot not found", [], 404);
@@ -70,6 +75,9 @@ export async function DELETE(
     }
     if (message.includes("Insufficient permissions")) {
       return errorResponse("Admin access required", [], 403);
+    }
+    if (error instanceof ApiError && error.statusCode !== 500) {
+      return errorResponse(message, error.details, error.statusCode);
     }
     if (message.includes("not found")) {
       return errorResponse("Time slot not found", [], 404);

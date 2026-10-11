@@ -34,18 +34,18 @@ const steps = [
 
 export default function HowItWorks() {
   return (
-    <section className="bg-muted-light py-20 sm:py-24">
+    <section className="overflow-hidden bg-muted-light py-14 sm:py-20 lg:py-24">
       <Container>
         {/* Heading */}
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-4xl">
             Best Value for your Scrap in{" "}
             <span className="text-primary">4 simple steps</span>
           </h2>
         </div>
 
         {/* Steps grid */}
-        <div className="mx-auto mt-16 grid max-w-5xl grid-cols-2 gap-12 lg:grid-cols-4 lg:gap-8">
+        <div className="mx-auto mt-10 grid max-w-5xl grid-cols-2 gap-x-5 gap-y-8 sm:mt-14 sm:gap-12 lg:mt-16 lg:grid-cols-4 lg:gap-8">
           {steps.map((step) => {
             const Icon = step.icon;
             return (
@@ -67,17 +67,17 @@ export default function HowItWorks() {
                 </div>
 
                 {/* Step number */}
-                <span className="mt-6 text-xs font-bold uppercase tracking-widest text-primary">
+                <span className="mt-4 text-[10px] font-bold uppercase tracking-widest text-primary sm:mt-6 sm:text-xs">
                   Step {step.number}
                 </span>
 
                 {/* Step title */}
-                <h3 className="mt-2 text-lg font-bold text-foreground">
+                <h3 className="mt-1.5 text-base font-bold text-foreground sm:mt-2 sm:text-lg">
                   {step.title}
                 </h3>
 
                 {/* Step description */}
-                <p className="mt-2 max-w-[220px] text-sm leading-relaxed text-muted">
+                <p className="mt-1.5 max-w-[220px] text-xs leading-relaxed text-muted sm:mt-2 sm:text-sm">
                   {step.description}
                 </p>
               </div>

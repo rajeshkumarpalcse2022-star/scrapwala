@@ -48,7 +48,7 @@ const NAV_SECTIONS = [
     label: "SERVICE",
     items: [
       { href: "/admin/locations", label: "Locations", icon: MapPin },
-      { href: "/admin/time-slots", label: "Time Slots", icon: Clock },
+      { href: "/admin/time-slots", label: "Date & Time Slots", icon: Clock },
     ],
   },
   {

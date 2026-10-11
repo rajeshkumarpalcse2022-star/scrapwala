@@ -1,15 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import NotificationBell from "@/components/collector/NotificationBell";
-
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good Morning";
-  if (hour < 17) return "Good Afternoon";
-  return "Good Evening";
-}
+import { getGreeting } from "@/lib/utils/greeting";
 
 function getInitials(name: string): string {
   return name
@@ -31,6 +26,16 @@ export default function CollectorHeader({ onMenuClick }: CollectorHeaderProps) {
   const displayName = user?.name || "Collector";
   const firstName = displayName.split(" ")[0];
 
+  // Resolved after mount — greeting follows IST and flips past midnight,
+  // so the SSR pass must not guess it.
+  const [greeting, setGreeting] = useState("");
+  useEffect(() => {
+    const update = () => setGreeting(getGreeting());
+    update();
+    const timer = setInterval(update, 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-white px-4 md:px-6">
       <div className="flex items-center gap-3">
@@ -41,7 +46,8 @@ export default function CollectorHeader({ onMenuClick }: CollectorHeaderProps) {
           <Menu className="h-5 w-5" />
         </button>
         <h1 className="text-lg font-semibold text-gray-900">
-          {getGreeting()}, {firstName}
+          {greeting ? `${greeting}, ` : ""}
+          {firstName}
         </h1>
       </div>
 

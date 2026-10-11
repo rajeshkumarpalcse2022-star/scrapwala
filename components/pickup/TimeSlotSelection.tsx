@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Clock, Loader2 } from "lucide-react";
+import { AlertTriangle, Clock, Loader2 } from "lucide-react";
 import type { TimeSlot } from "@/types/pickup";
 
 interface TimeSlotSelectionProps {
+  /** The IST calendar day chosen in step 6 — availability is per-date. */
+  date: Date;
   selectedSlot: TimeSlot | null;
+  /** Conflict message from a failed booking (slot filled up meanwhile). */
+  notice?: string | null;
   onNext: (slot: TimeSlot) => void;
   onBack: () => void;
 }
@@ -21,8 +25,17 @@ function formatTime(t: string): string {
   return `${String(hour).padStart(2, "0")}:${minutes} ${suffix}`;
 }
 
+function dateKeyOf(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function TimeSlotSelection({
+  date,
   selectedSlot,
+  notice,
   onNext,
   onBack,
 }: TimeSlotSelectionProps) {
@@ -32,13 +45,26 @@ export default function TimeSlotSelection({
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
+  const dateKey = useMemo(() => dateKeyOf(date), [date]);
+  const dateLabel = useMemo(
+    () =>
+      date.toLocaleDateString("en-IN", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      }),
+    [date]
+  );
+
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       setLoading(true);
       try {
-        const res = await fetch("/api/time-slots", { cache: "no-store" });
+        const res = await fetch(`/api/time-slots?date=${dateKey}`, {
+          cache: "no-store",
+        });
         const json = await res.json();
         if (cancelled) return;
         if (!res.ok || !json.success) {
@@ -68,7 +94,7 @@ export default function TimeSlotSelection({
     return () => {
       cancelled = true;
     };
-  }, [reloadKey]);
+  }, [dateKey, reloadKey]);
 
   const handleContinue = () => {
     if (!selected) {
@@ -98,8 +124,28 @@ export default function TimeSlotSelection({
     <div>
       <h2 className="text-2xl font-bold text-foreground">Select Time Slot</h2>
       <p className="mt-2 text-muted">
-        Choose a time window for the collector to visit.
+        Choose a time window for the collector to visit on{" "}
+        <span className="font-medium text-foreground">{dateLabel}</span>.
       </p>
+
+      {notice && (
+        <div
+          className="mt-4 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-4"
+          role="alert"
+        >
+          <AlertTriangle
+            className="mt-0.5 h-4 w-4 shrink-0 text-destructive"
+            aria-hidden="true"
+          />
+          <div>
+            <p className="text-sm font-medium text-destructive">{notice}</p>
+            <p className="mt-1 text-xs text-muted">
+              Availability was refreshed for your date — please pick another
+              time.
+            </p>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="mt-6 flex items-center justify-center gap-2 rounded-xl border border-border bg-card p-8 text-sm text-muted">
@@ -122,7 +168,7 @@ export default function TimeSlotSelection({
         </div>
       ) : slots.length === 0 ? (
         <div className="mt-6 rounded-xl border border-border bg-card p-8 text-center text-sm text-muted">
-          No time slots are available right now. Please check again later.
+          No time slots are available for this date. Please check again later.
         </div>
       ) : (
         <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -131,6 +177,8 @@ export default function TimeSlotSelection({
             const isUnavailable = slot.availability === "unavailable";
             const start = formatTime(slot.startTime);
             const end = formatTime(slot.endTime);
+            const remaining =
+              typeof slot.available === "number" ? slot.available : null;
 
             return (
               <button
@@ -173,6 +221,13 @@ export default function TimeSlotSelection({
                   )}
                 >
                   {availabilityLabels[slot.availability]}
+                </span>
+                <span className="mt-1 text-xs text-muted">
+                  {isUnavailable
+                    ? "Fully booked"
+                    : remaining !== null
+                      ? `${remaining} slot${remaining === 1 ? "" : "s"} left`
+                      : "\u00A0"}
                 </span>
                 {isSelected && (
                   <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-primary" />

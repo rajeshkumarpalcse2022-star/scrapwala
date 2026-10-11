@@ -91,6 +91,9 @@ export async function PATCH(
     if (message.includes("Invalid status value")) {
       return errorResponse("Invalid status value", [], 400);
     }
+    if (message.includes("advances automatically")) {
+      return errorResponse(message, [], 400);
+    }
     if (message.includes("User is not a collector")) {
       return errorResponse("Selected user is not a collector", [], 400);
     }

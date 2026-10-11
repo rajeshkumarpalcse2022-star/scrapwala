@@ -95,14 +95,14 @@ export default function ScrapSelection({
           {visibleGroups.map((group) => (
             <div key={group.id}>
               <div className="mb-3">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-foreground">
                   {group.name}
                 </h3>
                 {group.description && (
                   <p className="mt-0.5 text-xs text-muted">{group.description}</p>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              <div className="grid grid-cols-2 items-stretch gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
                 {group.subcategories.map((sub) => (
                   <ScrapCategoryCard
                     key={sub.id}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Leaf, Recycle, RefreshCw } from "lucide-react";
+import { Recycle, RefreshCw } from "lucide-react";
 import RemoteImage from "@/components/common/RemoteImage";
 import type { PublicRateView } from "@/types/rates";
 
@@ -26,7 +26,6 @@ export default function ScrapRateCard({ rate }: ScrapRateCardProps) {
     : `\u20B9${rate.minRate}`;
   const description = rate.description?.trim();
   const showImage = Boolean(rate.imageUrl) && !imageBroken;
-  const isActive = rate.isActive !== false;
 
   const cardShadow =
     "shadow-[0_1px_2px_rgba(16,24,40,0.06),0_16px_40px_-24px_rgba(16,24,40,0.25)]";
@@ -105,22 +104,6 @@ export default function ScrapRateCard({ rate }: ScrapRateCardProps) {
             </p>
           </div>
 
-          <div className="flex items-center justify-between gap-2">
-            <span className="inline-flex max-w-[68%] items-center gap-1.5 rounded-full bg-white/80 px-3 py-1.5 text-xs font-semibold text-primary">
-              <Leaf className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span className="truncate">{rate.category}</span>
-            </span>
-
-            {isActive && (
-              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-brand-cyan px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-foreground shadow-sm">
-                <span
-                  className="h-1.5 w-1.5 rounded-full bg-foreground"
-                  aria-hidden="true"
-                />
-                Active
-              </span>
-            )}
-          </div>
         </div>
       </div>
     </button>

@@ -76,7 +76,7 @@ const GEOCODE_NOTICE =
   "Location detected, but we couldn't automatically fill the address. Please enter the missing details manually.";
 
 const NO_COORDS_ERROR =
-  "Please set your pickup location — use the current-location button or move the map.";
+  "Please detect your pickup location first using the current-location button.";
 
 function geoErrorMessage(code: number): string {
   switch (code) {
@@ -513,7 +513,7 @@ export default function LocationStep({
     <form onSubmit={handleSubmit} noValidate>
       <h2 className="text-2xl font-bold text-foreground">Pickup Location</h2>
       <p className="mt-2 text-muted">
-        Pin your exact pickup spot on the map, then confirm the address.
+        Detect your pickup location, then confirm the address below.
       </p>
 
       <div className="mt-6 space-y-5">
@@ -563,14 +563,6 @@ export default function LocationStep({
           )}
         </div>
 
-        {/* Pickup point caption */}
-        <div className="text-sm text-muted">
-          <p className="font-medium text-foreground">Pickup Point</p>
-          <p className="mt-0.5">
-            Move the map so the pin sits on your pickup spot.
-          </p>
-        </div>
-
         {/* Advisory serviceability preview */}
         {serviceability === "checking" && (
           <div className="flex items-center gap-2 rounded-lg bg-muted-light px-4 py-3 text-sm text-muted">
@@ -597,8 +589,8 @@ export default function LocationStep({
           >
             <XCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span>
-              We don&apos;t serve this location yet. Please adjust the map pin
-              or check your PIN code.
+              We don&apos;t serve this location yet. Please fill your PIN code
+              manually and then check if we are available.
             </span>
           </div>
         )}

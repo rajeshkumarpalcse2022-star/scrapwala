@@ -1,17 +1,19 @@
 import { IconCloud } from "@/components/ui/icon-cloud";
 
-// Fluent Emoji Flat set (consistent colorful style) served by the Iconify CDN.
-// Swap these for local files under /public/images/scrap-icons when available.
-const ICONIFY = "https://api.iconify.design/fluent-emoji-flat";
-
 const SCRAP_MATERIAL_ICONS = [
-  { src: `${ICONIFY}/newspaper.svg`, alt: "Newspaper" },
-  { src: `${ICONIFY}/books.svg`, alt: "Books" },
-  { src: `${ICONIFY}/package.svg`, alt: "Cardboard" },
-  { src: `${ICONIFY}/t-shirt.svg`, alt: "Clothes" },
-  { src: `${ICONIFY}/lotion-bottle.svg`, alt: "Bottles and plastic" },
-  { src: `${ICONIFY}/chains.svg`, alt: "Iron" },
-  { src: `${ICONIFY}/nut-and-bolt.svg`, alt: "Metals" },
+  { src: "/images/scrap-icons/stack-of-books.svg", alt: "Books" },
+  { src: "/images/scrap-icons/box.svg", alt: "Cardboard" },
+  { src: "/images/scrap-icons/tshirt.svg", alt: "Clothes" },
+  { src: "/images/scrap-icons/bottle.svg", alt: "Bottles" },
+  { src: "/images/scrap-icons/plastic-bottle.svg", alt: "Plastic" },
+  { src: "/images/scrap-icons/drink.svg", alt: "Drink cans" },
+  { src: "/images/scrap-icons/copper-wire.svg", alt: "Copper wire" },
+  { src: "/images/scrap-icons/metal.svg", alt: "Metals" },
+  { src: "/images/scrap-icons/plastic.svg", alt: "Plastic waste" },
+  { src: "/images/scrap-icons/bolt.svg", alt: "Bolts" },
+  { src: "/images/scrap-icons/phone.svg", alt: "Old phones" },
+  { src: "/images/scrap-icons/broken-screen.svg", alt: "Broken screens" },
+  { src: "/images/scrap-icons/beer.svg", alt: "Glass bottles" },
 ];
 
 export default function ScrapMaterialIconCloud() {

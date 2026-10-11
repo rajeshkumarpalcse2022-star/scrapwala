@@ -5,6 +5,13 @@ export interface ScrapSubcategoryOption {
   imageUrl?: string;
 }
 
+/** A customer-uploaded scrap photo attached to a pickup booking. */
+export interface PickupPhoto {
+  url: string;
+  publicId: string;
+  uploadedAt?: string;
+}
+
 export interface ScrapCatalogGroup {
   id: string;
   name: string;
@@ -32,8 +39,16 @@ export interface TimeSlot {
   label?: string;
   startTime: string;
   endTime: string;
+  /** Regular admin capacity for the slot. */
   capacity?: number;
+  /** Capacity actually in force for the chosen date (override applied). */
+  effectiveCapacity?: number;
+  /** Real non-cancelled bookings for the chosen date. */
   booked?: number;
+  /** Seats left for the chosen date (never negative). */
+  available?: number;
+  /** IST date key the availability was computed for ("YYYY-MM-DD"). */
+  date?: string;
   availability: "available" | "limited" | "unavailable";
 }
 
