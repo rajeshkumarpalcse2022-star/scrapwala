@@ -317,3 +317,252 @@ export async function destroyAsset(publicId: string): Promise<boolean> {
 const cloudinaryService = { uploadSvg, uploadPickupPhoto, destroyAsset, assertValidSvg };
 
 export default cloudinaryService;
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Hiring applicant documents (photo / signature / resume).
+ *
+ * These are uploaded as PRIVATE Cloudinary assets: no permanent public URL
+ * is ever stored or exposed. Server-side access checks mint short-lived
+ * signed delivery URLs on demand for the owning user or an admin.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+export type HiringUploadKind = "photo" | "signature" | "document";
+
+export interface HiringUploadResult {
+  cloudinaryPublicId: string;
+  resourceType: "image" | "raw";
+  format: string;
+  size: number;
+  width?: number;
+  height?: number;
+}
+
+const HIRING_FOLDER = "scrapwala/hiring-documents";
+
+const HIRING_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+export function hiringUploadLimits(kind: HiringUploadKind): {
+  maxBytes: number;
+  mimeTypes: string[];
+  acceptLabel: string;
+} {
+  if (kind === "document") {
+    return {
+      maxBytes: 3 * 1024 * 1024,
+      mimeTypes: ["application/pdf"],
+      acceptLabel: "PDF",
+    };
+  }
+  if (kind === "signature") {
+    return {
+      maxBytes: 1 * 1024 * 1024,
+      mimeTypes: [...HIRING_IMAGE_MIME_TYPES],
+      acceptLabel: "JPEG, PNG or WebP",
+    };
+  }
+  return {
+    maxBytes: 2 * 1024 * 1024,
+    mimeTypes: [...HIRING_IMAGE_MIME_TYPES],
+    acceptLabel: "JPEG, PNG or WebP",
+  };
+}
+
+function sniffPdf(bytes: Uint8Array): boolean {
+  return (
+    bytes.length >= 4 &&
+    bytes[0] === 0x25 && // %
+    bytes[1] === 0x50 && // P
+    bytes[2] === 0x44 && // D
+    bytes[3] === 0x46 // F
+  );
+}
+
+/**
+ * Validate + upload one hiring document as a private Cloudinary asset.
+ * Real file content is signature-sniffed so a renamed executable or text
+ * file can never masquerade as an image or PDF.
+ */
+export async function uploadHiringDocument(
+  file: File,
+  kind: HiringUploadKind
+): Promise<HiringUploadResult> {
+  const limits = hiringUploadLimits(kind);
+
+  if (file.size <= 0) {
+    throw new ApiError(400, "Please choose a file to upload", "INVALID_FILE");
+  }
+  if (file.size > limits.maxBytes) {
+    const mb = (limits.maxBytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, "");
+    throw new ApiError(
+      400,
+      `File must be smaller than ${mb} MB`,
+      "FILE_TOO_LARGE"
+    );
+  }
+  if (!limits.mimeTypes.includes(file.type)) {
+    throw new ApiError(
+      400,
+      `Only ${limits.acceptLabel} files are allowed`,
+      "INVALID_FILE_TYPE"
+    );
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+
+  let resourceType: "image" | "raw";
+  let format: string;
+  let safeExtension: string;
+
+  if (kind === "document") {
+    if (file.type !== "application/pdf" || !sniffPdf(bytes)) {
+      throw new ApiError(
+        400,
+        "File content does not match a valid PDF document",
+        "INVALID_FILE_TYPE"
+      );
+    }
+    resourceType = "raw";
+    format = "pdf";
+    safeExtension = "pdf";
+  } else {
+    const sniffed = sniffPhotoType(bytes);
+    if (!sniffed || !limits.mimeTypes.includes(sniffed)) {
+      throw new ApiError(
+        400,
+        "File content does not match a valid JPEG, PNG or WebP image",
+        "INVALID_FILE_TYPE"
+      );
+    }
+    resourceType = "image";
+    format =
+      sniffed === "image/jpeg" ? "jpg" : sniffed === "image/png" ? "png" : "webp";
+    safeExtension = format;
+  }
+
+  const config = getConfig();
+  const timestamp = Math.floor(Date.now() / 1000);
+  // Params are signed alphabetically: folder, timestamp, type.
+  const signature = sign(
+    `folder=${HIRING_FOLDER}&timestamp=${timestamp}&type=private`,
+    config.apiSecret
+  );
+
+  const form = new FormData();
+  const baseName = `hiring-${kind}-${timestamp}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+  form.append(
+    "file",
+    new Blob([bytes], { type: resourceType === "raw" ? "application/pdf" : file.type }),
+    `${baseName}.${safeExtension}`
+  );
+  form.append("api_key", config.apiKey);
+  form.append("timestamp", String(timestamp));
+  form.append("folder", HIRING_FOLDER);
+  form.append("type", "private");
+  form.append("signature", signature);
+
+  let json: {
+    secure_url?: string;
+    public_id?: string;
+    bytes?: number;
+    width?: number;
+    height?: number;
+    format?: string;
+    error?: { message?: string };
+  } | null = null;
+
+  try {
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/${config.cloudName}/${resourceType}/upload`,
+      { method: "POST", body: form }
+    );
+    json = await res.json().catch(() => null);
+
+    if (!res.ok || !json?.public_id) {
+      const reason = json?.error?.message ? ` (${json.error.message})` : "";
+      throw new ApiError(
+        502,
+        `Failed to upload document to Cloudinary${reason}`,
+        "CLOUDINARY_UPLOAD_FAILED"
+      );
+    }
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      502,
+      "Could not reach Cloudinary to upload the document",
+      "CLOUDINARY_UNREACHABLE"
+    );
+  }
+
+  return {
+    cloudinaryPublicId: json.public_id,
+    resourceType,
+    format: json.format || format,
+    size: json.bytes ?? bytes.length,
+    width: json.width,
+    height: json.height,
+  };
+}
+
+/**
+ * Mint a short-lived signed delivery URL for a private hiring asset.
+ * The URL stops working once `expiresInSeconds` elapses, so leaked links
+ * cannot be used for permanent document exposure.
+ */
+export function createHiringDeliveryUrl(params: {
+  publicId: string;
+  resourceType: "image" | "raw";
+  format: string;
+  expiresInSeconds?: number;
+}): string {
+  const config = getConfig();
+  const expiresAt =
+    Math.floor(Date.now() / 1000) + (params.expiresInSeconds ?? 600);
+
+  // Raw public ids already include their extension; image ids do not.
+  const signBase =
+    params.resourceType === "raw" ? params.publicId : params.publicId;
+  const path =
+    params.resourceType === "raw"
+      ? params.publicId
+      : `${params.publicId}.${params.format}`;
+
+  const signature = crypto
+    .createHash("sha1")
+    .update(signBase + expiresAt + config.apiSecret)
+    .digest("hex");
+
+  return `https://res.cloudinary.com/${config.cloudName}/${params.resourceType}/private/${signature}/${path}?expires=${expiresAt}`;
+}
+
+/** Best-effort destroy for private hiring assets (image or raw). */
+export async function destroyHiringAsset(
+  publicId: string,
+  resourceType: "image" | "raw"
+): Promise<boolean> {
+  try {
+    const config = getConfig();
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signature = sign(
+      `public_id=${publicId}&timestamp=${timestamp}`,
+      config.apiSecret
+    );
+
+    const form = new FormData();
+    form.append("public_id", publicId);
+    form.append("api_key", config.apiKey);
+    form.append("timestamp", String(timestamp));
+    form.append("signature", signature);
+
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/${config.cloudName}/${resourceType}/destroy`,
+      { method: "POST", body: form }
+    );
+    const json = await res.json().catch(() => null);
+    return res.ok && json?.result === "ok";
+  } catch {
+    return false;
+  }
+}

@@ -117,8 +117,14 @@ export default function LoginPage() {
         return;
       }
 
-      // All roles land on the public Home page after login. Role dashboards
-      // stay reachable through the avatar dropdown in the navbar.
+      // All roles land on the public Home page after login, unless the
+      // visitor came from a protected page (?next=/careers/...). Only
+      // same-origin absolute paths are honoured.
+      const nextParam = new URLSearchParams(window.location.search).get("next");
+      if (nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//")) {
+        router.push(nextParam);
+        return;
+      }
       router.push("/");
     } catch {
       setError("Something went wrong. Please try again.");

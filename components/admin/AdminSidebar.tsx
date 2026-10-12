@@ -16,6 +16,7 @@ import {
   BarChart3,
   Bell,
   Settings,
+  BriefcaseBusiness,
   X,
   LogOut,
 } from "lucide-react";
@@ -35,6 +36,7 @@ const NAV_SECTIONS = [
       { href: "/admin/pickups", label: "Pickups", icon: Package },
       { href: "/admin/customers", label: "Customers", icon: Users },
       { href: "/admin/collectors", label: "Collectors", icon: Truck },
+      { href: "/admin/hiring", label: "Hiring Management", icon: BriefcaseBusiness },
     ],
   },
   {
