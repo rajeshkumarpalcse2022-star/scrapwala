@@ -11,6 +11,7 @@ export interface IPickupPhotoUpload extends Document {
   customer: mongoose.Types.ObjectId;
   url: string;
   publicId: string;
+  uploadSessionId?: string;
   pickup?: mongoose.Types.ObjectId;
   purgeAt?: Date;
   createdAt: Date;
@@ -27,6 +28,10 @@ const PickupPhotoUploadSchema = new Schema<IPickupPhotoUpload>(
     },
     url: { type: String, required: true },
     publicId: { type: String, required: true },
+    // Client-generated id for one booking form session. The per-pickup
+    // photo cap is counted per session so abandoned uploads from earlier
+    // attempts can never block a fresh booking.
+    uploadSessionId: { type: String, index: true },
     pickup: { type: Schema.Types.ObjectId, ref: "Pickup" },
     purgeAt: { type: Date },
   },

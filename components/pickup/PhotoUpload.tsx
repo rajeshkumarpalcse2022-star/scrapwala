@@ -15,6 +15,8 @@ import {
 
 interface PhotoUploadProps {
   photos: PickupPhoto[];
+  /** Stable per-booking-form id; the server caps photos per session. */
+  uploadSessionId: string;
   onChange: (photos: PickupPhoto[]) => void;
 }
 
@@ -58,7 +60,11 @@ function newLocalId(): string {
   return `photo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-export default function PhotoUpload({ photos, onChange }: PhotoUploadProps) {
+export default function PhotoUpload({
+  photos,
+  uploadSessionId,
+  onChange,
+}: PhotoUploadProps) {
   const [entries, setEntries] = useState<UploadEntry[]>(() =>
     photos.map((p, index) => ({
       localId: `restored-${index}`,
@@ -156,6 +162,7 @@ export default function PhotoUpload({ photos, onChange }: PhotoUploadProps) {
 
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("uploadSessionId", uploadSessionId);
     xhr.send(formData);
   };
 

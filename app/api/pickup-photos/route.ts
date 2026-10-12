@@ -18,13 +18,24 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData().catch(() => null);
     const file = formData?.get("file");
+    const uploadSessionId =
+      typeof formData?.get("uploadSessionId") === "string"
+        ? String(formData.get("uploadSessionId")).trim()
+        : "";
 
     if (!(file instanceof File)) {
       return errorResponse("Please choose an image to upload", [], 400);
     }
 
+    if (!uploadSessionId) {
+      return errorResponse("Photo upload session is missing", [], 400);
+    }
+
+    // Cap applies per booking-form session, not per customer lifetime, so
+    // abandoned uploads from earlier attempts never block a new pickup.
     const pendingCount = await PickupPhotoUpload.countDocuments({
       customer: user.id,
+      uploadSessionId,
       pickup: null,
     });
     if (pendingCount >= PICKUP_PHOTO_MAX_COUNT) {
@@ -41,6 +52,7 @@ export async function POST(request: NextRequest) {
       customer: user.id,
       url: uploaded.imageUrl,
       publicId: uploaded.cloudinaryPublicId,
+      uploadSessionId,
       // Orphan cleanup: abandoned (never booked) uploads expire automatically.
       purgeAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });

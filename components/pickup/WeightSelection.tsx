@@ -10,6 +10,7 @@ import type { PickupPhoto } from "@/types/pickup";
 interface WeightSelectionProps {
   selected: string | null;
   photos: PickupPhoto[];
+  uploadSessionId: string;
   onPhotosChange: (photos: PickupPhoto[]) => void;
   onNext: (weightRange: string) => void;
   onBack: () => void;
@@ -18,6 +19,7 @@ interface WeightSelectionProps {
 export default function WeightSelection({
   selected,
   photos,
+  uploadSessionId,
   onPhotosChange,
   onNext,
   onBack,
@@ -102,7 +104,11 @@ export default function WeightSelection({
           understand the materials before pickup.
         </p>
         <div className="mt-3">
-          <PhotoUpload photos={photos} onChange={onPhotosChange} />
+          <PhotoUpload
+            photos={photos}
+            uploadSessionId={uploadSessionId}
+            onChange={onPhotosChange}
+          />
         </div>
         <p className="mt-3 text-xs text-muted">
           At least one photo is required. Uploading more helps our team

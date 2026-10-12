@@ -79,6 +79,15 @@ export default function PickupPage() {
   const [expectedWeight, setExpectedWeight] = useState<string | null>(null);
   /** Staged scrap photos (uploaded during the weight step, attached at booking). */
   const [scrapPhotos, setScrapPhotos] = useState<PickupPhoto[]>([]);
+  /**
+   * One id per booking-form visit; the server caps staged photos per
+   * session so leftovers from abandoned attempts never block new uploads.
+   */
+  const [photoUploadSessionId] = useState<string>(() =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `session-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
   const [pickupDate, setPickupDate] = useState<PickupDate | null>(null);
   const [timeSlot, setTimeSlot] = useState<TimeSlot | null>(null);
   /** Shown on the time step when the chosen slot filled up meanwhile. */
@@ -445,6 +454,7 @@ export default function PickupPage() {
                 <WeightSelection
                   selected={expectedWeight}
                   photos={scrapPhotos}
+                  uploadSessionId={photoUploadSessionId}
                   onPhotosChange={setScrapPhotos}
                   onNext={handleWeightNext}
                   onBack={() => goToStep(3)}
