@@ -14,7 +14,12 @@ export interface IHiringUpload extends Document {
   mimeType: string;
   size: number;
   cloudinaryPublicId: string;
-  cloudinaryUrl: string;
+  /**
+   * Optional. Hiring assets are stored as Cloudinary PRIVATE resources, so no
+   * permanent URL exists — access goes through short-lived signed delivery
+   * URLs generated per request.
+   */
+  cloudinaryUrl?: string;
   width?: number;
   height?: number;
   application?: mongoose.Types.ObjectId | null;
@@ -40,7 +45,7 @@ const HiringUploadSchema = new Schema<IHiringUpload>(
     mimeType: { type: String, required: true },
     size: { type: Number, required: true },
     cloudinaryPublicId: { type: String, required: true },
-    cloudinaryUrl: { type: String, required: true },
+    cloudinaryUrl: { type: String },
     width: { type: Number },
     height: { type: Number },
     application: { type: Schema.Types.ObjectId, ref: "HiringApplication" },

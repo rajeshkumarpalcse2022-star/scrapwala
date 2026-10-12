@@ -508,8 +508,12 @@ export async function uploadHiringDocument(
 
 /**
  * Mint a short-lived signed delivery URL for a private hiring asset.
- * The URL stops working once `expiresInSeconds` elapses, so leaked links
- * cannot be used for permanent document exposure.
+ *
+ * Uses Cloudinary's authenticated download endpoint (`private_download_url`
+ * style): the signature covers `public_id`, `type`, `timestamp` (and `format`
+ * for images); `expires` bounds how long the URL stays valid. The response is
+ * served with `Content-Disposition: inline`, so browsers render images/PDFs
+ * directly instead of forcing a download.
  */
 export function createHiringDeliveryUrl(params: {
   publicId: string;
@@ -518,23 +522,36 @@ export function createHiringDeliveryUrl(params: {
   expiresInSeconds?: number;
 }): string {
   const config = getConfig();
-  const expiresAt =
-    Math.floor(Date.now() / 1000) + (params.expiresInSeconds ?? 600);
+  const timestamp = Math.floor(Date.now() / 1000);
+  const expires = timestamp + (params.expiresInSeconds ?? 600);
 
-  // Raw public ids already include their extension; image ids do not.
-  const signBase =
-    params.resourceType === "raw" ? params.publicId : params.publicId;
-  const path =
-    params.resourceType === "raw"
-      ? params.publicId
-      : `${params.publicId}.${params.format}`;
+  // Raw public ids already include their extension; image ids do not, so the
+  // format directive is only signed for images. `expires` is enforced by the
+  // endpoint but is deliberately not part of the signed string.
+  const signedParams: Record<string, string | number> = {
+    public_id: params.publicId,
+    type: "private",
+    timestamp,
+  };
+  if (params.resourceType === "image") signedParams.format = params.format;
 
-  const signature = crypto
-    .createHash("sha1")
-    .update(signBase + expiresAt + config.apiSecret)
-    .digest("hex");
+  const toSign = Object.keys(signedParams)
+    .sort()
+    .map((key) => `${key}=${signedParams[key]}`)
+    .join("&");
+  const signature = sign(toSign, config.apiSecret);
 
-  return `https://res.cloudinary.com/${config.cloudName}/${params.resourceType}/private/${signature}/${path}?expires=${expiresAt}`;
+  const query = new URLSearchParams({
+    api_key: config.apiKey,
+    public_id: params.publicId,
+    type: "private",
+    expires: String(expires),
+    timestamp: String(timestamp),
+    signature,
+  });
+  if (params.resourceType === "image") query.set("format", params.format);
+
+  return `https://api.cloudinary.com/v1_1/${config.cloudName}/${params.resourceType}/download?${query}`;
 }
 
 /** Best-effort destroy for private hiring assets (image or raw). */
