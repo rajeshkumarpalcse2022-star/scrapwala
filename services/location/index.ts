@@ -82,6 +82,22 @@ export async function listLocations(): Promise<LocationDTO[]> {
   return locations.map(serialize);
 }
 
+/** Minimal public projection: only admin-enabled locations, names sorted. */
+export async function listActiveLocations(): Promise<
+  Array<{ id: string; name: string }>
+> {
+  await connectDB();
+
+  const locations = await Location.find({ isActive: true })
+    .sort({ name: 1 })
+    .lean();
+
+  return locations.map((doc) => ({
+    id: doc._id.toString(),
+    name: doc.name,
+  }));
+}
+
 export async function createLocation(
   input: CreateLocationInput
 ): Promise<LocationDTO> {

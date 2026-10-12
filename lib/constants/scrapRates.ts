@@ -1,18 +1,8 @@
-export const LOCATIONS = [
-  "Kolkata",
-  "Howrah",
-  "Salt Lake",
-  "New Town",
-  "Kalyani",
-  "Durgapur",
-] as const;
-
-export type Location = (typeof LOCATIONS)[number];
-
 /**
- * Live scrap rates, categories and subcategories are loaded from MongoDB:
+ * Live scrap rates, categories and locations are loaded from MongoDB:
  * - GET /api/rates
  * - GET /api/categories
+ * - GET /api/locations (admin-enabled locations only)
  */
 export const NOT_ACCEPTED_MATERIALS = [
   "Thermocol",

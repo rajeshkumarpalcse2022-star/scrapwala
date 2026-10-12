@@ -8,18 +8,18 @@ import ScrapRateFilters from "./ScrapRateFilters";
 import ScrapRateCard from "./ScrapRateCard";
 import ScrapRateCardSkeleton from "./ScrapRateCardSkeleton";
 import RateNotice from "./RateNotice";
-import { type Location } from "@/lib/constants/scrapRates";
 import type { PublicRateView } from "@/types/rates";
 
 const ALL_CATEGORIES = "All";
 
 export default function ScrapRatesPageContent() {
-  const [location, setLocation] = useState<Location | "">("");
+  const [location, setLocation] = useState("");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>(ALL_CATEGORIES);
 
   const [rates, setRates] = useState<PublicRateView[]>([]);
   const [categoryNames, setCategoryNames] = useState<string[]>([]);
+  const [locationNames, setLocationNames] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -29,9 +29,10 @@ export default function ScrapRatesPageContent() {
 
     async function load() {
       try {
-        const [ratesRes, catsRes] = await Promise.all([
+        const [ratesRes, catsRes, locationsRes] = await Promise.all([
           fetch("/api/rates", { cache: "no-store" }),
           fetch("/api/categories", { cache: "no-store" }),
+          fetch("/api/locations", { cache: "no-store" }),
         ]);
         const ratesJson = await ratesRes.json();
         const catsJson = await catsRes.json();
@@ -55,6 +56,24 @@ export default function ScrapRatesPageContent() {
           .filter((name: string) => publishedCategories.has(name))
           .sort((a: string, b: string) => a.localeCompare(b));
         setCategoryNames(names);
+
+        // Location dropdown mirrors the admin-managed Location collection
+        // (isActive only). A locations failure must not break the rate list.
+        try {
+          const locationsJson = locationsRes.ok ? await locationsRes.json() : null;
+          const locationOptions: string[] = locationsJson?.success
+            ? (locationsJson.data?.locations || []).map(
+                (l: { name: string }) => l.name
+              )
+            : [];
+          setLocationNames(locationOptions);
+          setLocation((prev) =>
+            locationOptions.includes(prev) ? prev : ""
+          );
+        } catch {
+          setLocationNames([]);
+        }
+
         setLoadError(null);
       } catch (err) {
         if (cancelled) return;
@@ -113,7 +132,11 @@ export default function ScrapRatesPageContent() {
       <Container>
         <div className="space-y-6">
           {/* Location */}
-          <LocationSelector value={location} onChange={setLocation} />
+          <LocationSelector
+            locations={locationNames}
+            value={location}
+            onChange={setLocation}
+          />
 
           {!location && (
             <p className="text-center text-sm text-muted">
