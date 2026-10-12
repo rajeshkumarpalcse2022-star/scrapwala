@@ -17,11 +17,13 @@ import {
   Bell,
   Settings,
   BriefcaseBusiness,
+  PhoneCall,
   X,
   LogOut,
 } from "lucide-react";
 import UnseenCountBadge from "@/components/UnseenCountBadge";
 import { useUnseenPickupCount } from "@/hooks/useUnseenPickupCount";
+import { useUnseenCallbackCount } from "@/hooks/useUnseenCallbackCount";
 
 const NAV_SECTIONS = [
   {
@@ -51,6 +53,7 @@ const NAV_SECTIONS = [
     items: [
       { href: "/admin/locations", label: "Locations", icon: MapPin },
       { href: "/admin/time-slots", label: "Date & Time Slots", icon: Clock },
+      { href: "/admin/callbacks", label: "Call Requests", icon: PhoneCall },
     ],
   },
   {
@@ -84,6 +87,7 @@ export default function AdminSidebar({ open, onClose }: AdminSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const unseenPickups = useUnseenPickupCount("admin");
+  const unseenCallbacks = useUnseenCallbackCount();
 
   const isActive = (href: string) => {
     if (href === "/admin") return pathname === "/admin";
@@ -126,6 +130,9 @@ export default function AdminSidebar({ open, onClose }: AdminSidebarProps) {
                   {label}
                   {href === "/admin/pickups" && (
                     <UnseenCountBadge count={unseenPickups} />
+                  )}
+                  {href === "/admin/callbacks" && (
+                    <UnseenCountBadge count={unseenCallbacks} />
                   )}
                 </Link>
               ))}

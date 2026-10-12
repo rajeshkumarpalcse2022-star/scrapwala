@@ -4,6 +4,7 @@ import WeighingAccuracy from "@/components/home/WeighingAccuracy";
 import HowItWorks from "@/components/home/HowItWorks";
 import CTASection from "@/components/home/CTASection";
 import CircularJourney from "@/components/home/CircularJourney";
+import ContactFloat from "@/components/common/ContactFloat";
 
 export const metadata: Metadata = {
   title: "Doorstep Scrap Pickup & Recycling",
@@ -19,6 +20,7 @@ export default function HomePage() {
       <HowItWorks />
       <CTASection />
       <CircularJourney />
+      <ContactFloat />
     </>
   );
 }
