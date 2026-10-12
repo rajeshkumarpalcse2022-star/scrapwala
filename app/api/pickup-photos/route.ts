@@ -57,7 +57,12 @@ export async function POST(request: NextRequest) {
       purgeAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
-    return successResponse("Photo uploaded successfully", uploaded, 201);
+    // Client expects { url, publicId } (see PhotoUpload xhr.onload).
+    return successResponse(
+      "Photo uploaded successfully",
+      { url: uploaded.imageUrl, publicId: uploaded.cloudinaryPublicId },
+      201
+    );
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Failed to upload photo";

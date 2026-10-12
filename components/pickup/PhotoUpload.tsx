@@ -131,13 +131,15 @@ export default function PhotoUpload({
       xhrsRef.current.delete(localId);
       try {
         const json = JSON.parse(xhr.responseText);
-        if (xhr.status >= 200 && xhr.status < 300 && json.success && json.data?.url) {
+        const url = json.data?.url ?? json.data?.imageUrl;
+        const publicId = json.data?.publicId ?? json.data?.cloudinaryPublicId;
+        if (xhr.status >= 200 && xhr.status < 300 && json.success && url && publicId) {
           updateEntry({
             status: "done",
             progress: 100,
-            url: json.data.url,
-            publicId: json.data.publicId,
-            previewUrl: json.data.url,
+            url,
+            publicId,
+            previewUrl: url,
             error: undefined,
           });
         } else {
