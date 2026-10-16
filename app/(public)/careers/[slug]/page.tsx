@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
+  Copy,
   Loader2,
   Send,
+  Sparkles,
 } from "lucide-react";
 import Container from "@/components/common/Container";
 import DynamicHiringFields, {
@@ -18,6 +20,7 @@ import DynamicHiringFields, {
 import { useAuth } from "@/hooks/useAuth";
 import {
   UPLOAD_KIND_LIMITS,
+  matchAutofillValues,
   validateApplicationValues,
   type HiringFieldConfig,
 } from "@/lib/utils/hiring-fields";
@@ -33,6 +36,32 @@ interface PublicForm {
 }
 
 type UploadKind = "photo" | "signature" | "document";
+
+/** Last Application ID submitted on this device — reused as a suggestion. */
+const LAST_APPLICATION_ID_KEY = "scrapwala:hiring:lastApplicationId";
+
+function readLastApplicationId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(LAST_APPLICATION_ID_KEY);
+  } catch {
+    // Storage unavailable — suggestion stays empty.
+    return null;
+  }
+}
+
+function subscribeLastApplicationId(callback: () => void) {
+  window.addEventListener("storage", callback);
+  return () => window.removeEventListener("storage", callback);
+}
+
+function getLastApplicationIdSnapshot() {
+  return readLastApplicationId();
+}
+
+function getLastApplicationIdServerSnapshot() {
+  return null;
+}
 
 function uploadKindForType(type: string): UploadKind | null {
   if (type === "photo_upload") return "photo";
@@ -77,6 +106,20 @@ export default function HiringApplyPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [submittedApplicationId, setSubmittedApplicationId] = useState<
+    string | null
+  >(null);
+
+  const [autofillId, setAutofillId] = useState("");
+  const [autofillLoading, setAutofillLoading] = useState(false);
+  const [autofillError, setAutofillError] = useState<string | null>(null);
+  const [autofillNotice, setAutofillNotice] = useState<string | null>(null);
+  const lastApplicationId = useSyncExternalStore(
+    subscribeLastApplicationId,
+    getLastApplicationIdSnapshot,
+    getLastApplicationIdServerSnapshot
+  );
+  const [copiedId, setCopiedId] = useState(false);
 
   const objectUrlsRef = useRef<Map<string, string>>(new Map());
 
@@ -142,6 +185,71 @@ export default function HiringApplyPage() {
       return next;
     });
   }, []);
+
+  const handleAutofill = useCallback(
+    async (event: React.FormEvent) => {
+      event.preventDefault();
+      const id = autofillId.trim();
+      if (!id || autofillLoading) return;
+      setAutofillError(null);
+      setAutofillNotice(null);
+      setAutofillLoading(true);
+      try {
+        const response = await fetch(
+          `/api/hiring/applications/lookup?applicationId=${encodeURIComponent(id)}`,
+          { cache: "no-store" }
+        );
+        if (response.status === 401) {
+          router.replace(`/login?next=/careers/${slug}`);
+          return;
+        }
+        const json = await response.json().catch(() => null);
+        if (!response.ok || !json?.success) {
+          setAutofillError(
+            json?.message ||
+              "No previous application found with this Application ID."
+          );
+          return;
+        }
+        const prefilled = matchAutofillValues(
+          fields as unknown as HiringFieldConfig[],
+          json.data?.answers ?? []
+        );
+        const count = Object.keys(prefilled).length;
+        if (count === 0) {
+          setAutofillError(
+            "No matching details found for this form. Please fill it manually."
+          );
+          return;
+        }
+        setValues((prev) => ({ ...prev, ...prefilled }));
+        setErrors({});
+        setAutofillNotice(
+          `${count} field${count === 1 ? "" : "s"} filled from ${
+            json.data?.applicationId ?? id
+          }. Review and change anything before submitting — photo, signature and resume still need to be uploaded.`
+        );
+      } catch {
+        setAutofillError(
+          "Could not fetch the previous application. Please try again."
+        );
+      } finally {
+        setAutofillLoading(false);
+      }
+    },
+    [autofillId, autofillLoading, fields, router, slug]
+  );
+
+  const handleCopyApplicationId = useCallback(async () => {
+    if (!submittedApplicationId) return;
+    try {
+      await navigator.clipboard.writeText(submittedApplicationId);
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
+    } catch {
+      // Clipboard unavailable — the ID stays visible to copy manually.
+    }
+  }, [submittedApplicationId]);
 
   const handleUpload = useCallback(
     (fieldKey: string, file: File) => {
@@ -290,6 +398,18 @@ export default function HiringApplyPage() {
           );
           return;
         }
+        const newApplicationId = json.data?.applicationId;
+        if (typeof newApplicationId === "string" && newApplicationId) {
+          setSubmittedApplicationId(newApplicationId);
+          try {
+            window.localStorage.setItem(
+              LAST_APPLICATION_ID_KEY,
+              newApplicationId
+            );
+          } catch {
+            // Storage unavailable — the ID is still shown on screen.
+          }
+        }
         setSubmitted(true);
       } catch {
         setSubmitError(
@@ -408,6 +528,32 @@ export default function HiringApplyPage() {
                 will review your application and get back to you on your
                 contact number or email.
               </p>
+              {submittedApplicationId && (
+                <div className="mx-auto mt-4 max-w-[360px] rounded-xl border border-emerald-300 bg-white px-4 py-3">
+                  <p className="text-xs font-medium text-emerald-700">
+                    Your Application ID
+                  </p>
+                  <div className="mt-1 flex items-center justify-center gap-2">
+                    <span className="font-mono text-lg font-bold tracking-wide text-emerald-900">
+                      {submittedApplicationId}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyApplicationId}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-emerald-700 transition-colors hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                      aria-label="Copy Application ID"
+                      title="Copy Application ID"
+                    >
+                      <Copy className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-xs text-emerald-700">
+                    {copiedId
+                      ? "Copied!"
+                      : "Save this ID — use it to auto-fill your next application."}
+                  </p>
+                </div>
+              )}
               <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
                 <Link
                   href="/careers"
@@ -424,9 +570,67 @@ export default function HiringApplyPage() {
               </div>
             </div>
           ) : (
+            <>
+              <div className="mt-8 rounded-2xl border border-primary/20 bg-primary-light/40 p-5 sm:p-6">
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
+                  Fill from a previous application
+                </h2>
+                <p className="mt-1 text-xs leading-relaxed text-muted">
+                  Applied before? Enter your Application ID (e.g. APP-000123)
+                  and matching details will be filled automatically. You can
+                  still change anything after filling. Photo, signature and
+                  resume must be uploaded again.
+                </p>
+                <form
+                  onSubmit={handleAutofill}
+                  className="mt-3 flex flex-col gap-2 sm:flex-row"
+                >
+                  <input
+                    type="text"
+                    value={autofillId}
+                    onChange={(event) => {
+                      setAutofillId(event.target.value);
+                      setAutofillError(null);
+                    }}
+                    placeholder={
+                      lastApplicationId
+                        ? `e.g. ${lastApplicationId}`
+                        : "APP-000123"
+                    }
+                    aria-label="Previous Application ID"
+                    className="block w-full rounded-lg border border-border bg-background px-4 py-2.5 font-mono text-sm uppercase tracking-wide text-foreground placeholder:normal-case placeholder:font-sans placeholder:tracking-normal placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60 sm:max-w-[240px]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={autofillLoading || !autofillId.trim()}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary bg-background px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary-light focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {autofillLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    {autofillLoading ? "Filling…" : "Autofill"}
+                  </button>
+                </form>
+                {autofillError && (
+                  <p className="mt-2 flex items-center gap-1.5 text-sm text-red-600">
+                    <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    {autofillError}
+                  </p>
+                )}
+                {autofillNotice && (
+                  <p className="mt-2 flex items-center gap-1.5 text-sm text-emerald-700">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    {autofillNotice}
+                  </p>
+                )}
+              </div>
+
             <form
               onSubmit={handleSubmit}
-              className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6"
+              className="mt-4 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6"
               noValidate
             >
               <h2 className="text-lg font-semibold text-foreground">
@@ -470,6 +674,7 @@ export default function HiringApplyPage() {
                 {submitting ? "Submitting…" : "Submit Application"}
               </button>
             </form>
+            </>
           )}
         </div>
       </Container>

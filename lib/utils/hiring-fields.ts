@@ -338,3 +338,77 @@ export function normalizeFieldValue(
 export function uploadFieldKeys(fields: HiringFieldConfig[]): string[] {
   return fields.filter((field) => isUploadFieldType(field.type)).map((f) => f.key);
 }
+
+/** A stored answer from a previously submitted application. */
+export interface AutofillAnswer {
+  fieldKey: string;
+  label: string;
+  type: string;
+  value: string;
+}
+
+function normalizeLabelKey(label: string): string {
+  return label.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/**
+ * Match answers from a previous application against the current form so the
+ * applicant's common details (name, phone, email, …) can be pre-filled.
+ *
+ * Rules:
+ * - Upload fields are never auto-filled — files must be re-attached manually.
+ * - A field is filled only when the previous answer has the same type, and
+ *   matches by field key first, then by case-insensitive label.
+ * - `select`/`radio` values are reused only when they exist in the new form's
+ *   options; `checkbox` values only when every picked option still exists.
+ * - Values are trimmed to the new field's character limit.
+ *
+ * Returns `fieldKey -> value` for the fields that matched; everything else
+ * stays empty for the user to fill manually.
+ */
+export function matchAutofillValues(
+  fields: HiringFieldConfig[],
+  answers: AutofillAnswer[]
+): Record<string, string> {
+  const byKey = new Map<string, AutofillAnswer>();
+  const byLabel = new Map<string, AutofillAnswer>();
+  for (const answer of answers) {
+    if (answer.value.trim() === "") continue;
+    if (!byKey.has(answer.fieldKey)) byKey.set(answer.fieldKey, answer);
+    const labelKey = normalizeLabelKey(answer.label);
+    if (labelKey && !byLabel.has(labelKey)) byLabel.set(labelKey, answer);
+  }
+
+  const result: Record<string, string> = {};
+  for (const field of fields) {
+    if (isUploadFieldType(field.type)) continue;
+
+    const answer = [byKey.get(field.key), byLabel.get(normalizeLabelKey(field.label))].find(
+      (candidate) => candidate !== undefined && candidate.type === field.type
+    );
+    if (!answer) continue;
+
+    const value = answer.value.trim();
+    if (value === "") continue;
+
+    if (field.type === "select" || field.type === "radio") {
+      const allowed = (field.options ?? []).map((option) => option.value);
+      if (!allowed.includes(value)) continue;
+    } else if (field.type === "checkbox") {
+      const allowed = (field.options ?? []).map((option) => option.value);
+      const picked = value
+        .split(",")
+        .map((item) => item.trim())
+        .filter((item) => item !== "");
+      if (picked.length === 0 || picked.some((item) => !allowed.includes(item))) {
+        continue;
+      }
+    } else {
+      const limit = field.maxLength ?? (field.type === "long_text" ? 4000 : 300);
+      if (value.length > limit) continue;
+    }
+
+    result[field.key] = value;
+  }
+  return result;
+}

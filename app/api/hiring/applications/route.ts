@@ -2,9 +2,34 @@ import { NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { requireRole } from "@/lib/auth/require-auth";
 import { submitHiringApplicationSchema } from "@/lib/validations/hiring";
-import { createHiringApplication } from "@/services/hiring";
+import { createHiringApplication, listOwnHiringApplications } from "@/services/hiring";
 import { ApiError } from "@/lib/utils/api-error";
 import { successResponse, errorResponse } from "@/lib/utils/api-response";
+
+/**
+ * List the caller's own submitted applications (newest first) so the
+ * customer can track status from their account.
+ */
+export async function GET() {
+  try {
+    const user = await requireRole("user");
+    const applications = await listOwnHiringApplications(user.id);
+    return successResponse("Applications fetched", { applications });
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Failed to fetch applications";
+    if (message.includes("Authentication required")) {
+      return errorResponse("Please login", [], 401);
+    }
+    if (message.includes("Insufficient permissions")) {
+      return errorResponse("Not available for this account", [], 403);
+    }
+    if (error instanceof ApiError && error.statusCode !== 500) {
+      return errorResponse(message, error.details, error.statusCode);
+    }
+    return errorResponse(message, [], 500);
+  }
+}
 
 /**
  * Submit a hiring application against a published form. The server

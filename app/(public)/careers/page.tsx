@@ -21,6 +21,43 @@ function excerpt(text: string, limit = 220): string {
   return `${text.slice(0, limit).trimEnd()}…`;
 }
 
+// Each hiring card cycles through this palette so multiple openings look
+// distinct and attractive. Classes are static strings so Tailwind can see them.
+const CARD_THEMES = [
+  {
+    card: "border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-white",
+    button: "bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500/40",
+  },
+  {
+    card: "border-blue-200 bg-gradient-to-br from-blue-50 via-white to-white",
+    button: "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500/40",
+  },
+  {
+    card: "border-purple-200 bg-gradient-to-br from-purple-50 via-white to-white",
+    button: "bg-purple-600 hover:bg-purple-700 focus:ring-purple-500/40",
+  },
+  {
+    card: "border-rose-200 bg-gradient-to-br from-rose-50 via-white to-white",
+    button: "bg-rose-600 hover:bg-rose-700 focus:ring-rose-500/40",
+  },
+  {
+    card: "border-amber-200 bg-gradient-to-br from-amber-50 via-white to-white",
+    button: "bg-amber-600 hover:bg-amber-700 focus:ring-amber-500/40",
+  },
+  {
+    card: "border-teal-200 bg-gradient-to-br from-teal-50 via-white to-white",
+    button: "bg-teal-600 hover:bg-teal-700 focus:ring-teal-500/40",
+  },
+  {
+    card: "border-orange-200 bg-gradient-to-br from-orange-50 via-white to-white",
+    button: "bg-orange-600 hover:bg-orange-700 focus:ring-orange-500/40",
+  },
+  {
+    card: "border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-white",
+    button: "bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500/40",
+  },
+];
+
 export default function CareersPage() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
@@ -101,35 +138,38 @@ export default function CareersPage() {
 
           {!isLoading && !error && forms && forms.length > 0 && (
             <div className="space-y-4">
-              {forms.map((form) => (
-                <div
-                  key={form.id}
-                  className="rounded-xl border border-border bg-card p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6"
-                >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <h2 className="text-lg font-bold text-foreground sm:text-xl">
-                        {form.title}
-                      </h2>
-                      {form.subtitle && (
-                        <p className="mt-0.5 text-sm text-muted">
-                          {form.subtitle}
+              {forms.map((form, index) => {
+                const theme = CARD_THEMES[index % CARD_THEMES.length];
+                return (
+                  <div
+                    key={form.id}
+                    className={`rounded-xl border p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:p-6 ${theme.card}`}
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <h2 className="text-lg font-bold text-foreground sm:text-xl">
+                          {form.title}
+                        </h2>
+                        {form.subtitle && (
+                          <p className="mt-0.5 text-sm text-muted">
+                            {form.subtitle}
+                          </p>
+                        )}
+                        <p className="mt-2 text-sm leading-relaxed text-muted">
+                          {excerpt(form.description)}
                         </p>
-                      )}
-                      <p className="mt-2 text-sm leading-relaxed text-muted">
-                        {excerpt(form.description)}
-                      </p>
+                      </div>
+                      <Link
+                        href={`/careers/${form.slug}`}
+                        className={`inline-flex shrink-0 items-center gap-2 self-start rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-colors focus:outline-none focus:ring-2 sm:self-center ${theme.button}`}
+                      >
+                        Apply Now
+                        <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                      </Link>
                     </div>
-                    <Link
-                      href={`/careers/${form.slug}`}
-                      className="inline-flex shrink-0 items-center gap-2 self-start rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary/40 sm:self-center"
-                    >
-                      Apply Now
-                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                    </Link>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -9,7 +9,7 @@ import { errorResponse } from "@/lib/utils/api-response";
  * and saved application snapshot the admin download uses.
  */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -19,7 +19,8 @@ export async function GET(
     // Ownership check before any PDF work happens.
     await getOwnHiringApplication(id, user.id);
 
-    const { buffer, fileName } = await buildApplicationPdf(id);
+    const documentUrlPrefix = `${new URL(request.url).origin}/api/hiring/applications/${id}`;
+    const { buffer, fileName } = await buildApplicationPdf(id, { documentUrlPrefix });
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {

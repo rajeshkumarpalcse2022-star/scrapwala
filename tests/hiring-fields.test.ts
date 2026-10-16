@@ -6,12 +6,14 @@ import {
   UPLOAD_KIND_LIMITS,
   defaultHiringFields,
   isUploadFieldType,
+  matchAutofillValues,
   normalizeEmail,
   normalizeFieldValue,
   normalizePhone,
   slugifyTitle,
   uniqueSlug,
   validateApplicationValues,
+  type AutofillAnswer,
   type HiringFieldConfig,
 } from "../lib/utils/hiring-fields";
 
@@ -229,5 +231,53 @@ describe("isUploadFieldType", () => {
     assert.equal(isUploadFieldType("signature_upload"), true);
     assert.equal(isUploadFieldType("resume_upload"), true);
     assert.equal(isUploadFieldType("short_text"), false);
+  });
+});
+
+describe("matchAutofillValues", () => {
+  const fields: HiringFieldConfig[] = [
+    field({ key: "full_name", label: "Full Name", type: "short_text", required: true }),
+    field({ key: "contact_number", label: "Contact Number", type: "phone", required: true }),
+    field({ key: "city", label: "City", type: "select", options: [
+      { label: "Jaipur", value: "jaipur" },
+      { label: "Delhi", value: "delhi" },
+    ] }),
+    field({ key: "photo_upload", label: "Photo Upload", type: "photo_upload", required: true }),
+  ];
+
+  const answers: AutofillAnswer[] = [
+    { fieldKey: "full_name", label: "Full Name", type: "short_text", value: "Ravi Kumar" },
+    { fieldKey: "contact_number", label: "Contact Number", type: "phone", value: "9876543210" },
+    { fieldKey: "city", label: "City", type: "select", value: "jaipur" },
+    { fieldKey: "photo_upload", label: "Photo Upload", type: "photo_upload", value: "stored.png" },
+  ];
+
+  it("fills matching non-upload fields by key and type", () => {
+    const result = matchAutofillValues(fields, answers);
+    assert.equal(result.full_name, "Ravi Kumar");
+    assert.equal(result.contact_number, "9876543210");
+  });
+
+  it("never auto-fills upload fields", () => {
+    const result = matchAutofillValues(fields, answers);
+    assert.equal("photo_upload" in result, false);
+  });
+
+  it("fills by case-insensitive label when key differs", () => {
+    const renamed = [{ ...answers[0], fieldKey: "applicant_name" }];
+    const result = matchAutofillValues(fields, renamed);
+    assert.equal(result.full_name, "Ravi Kumar");
+  });
+
+  it("skips answers whose type does not match the field", () => {
+    const mismatched = [{ ...answers[0], type: "long_text" }];
+    const result = matchAutofillValues(fields, mismatched);
+    assert.equal("full_name" in result, false);
+  });
+
+  it("skips select values that are not in the new options", () => {
+    const invalid = [{ fieldKey: "city", label: "City", type: "select", value: "mumbai" }];
+    const result = matchAutofillValues(fields, invalid);
+    assert.equal("city" in result, false);
   });
 });

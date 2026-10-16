@@ -6,13 +6,14 @@ import { errorResponse } from "@/lib/utils/api-response";
 
 /** Admin download of the same application summary PDF the applicant gets. */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireRole("admin");
     const { id } = await params;
-    const { buffer, fileName } = await buildApplicationPdf(id);
+    const documentUrlPrefix = `${new URL(request.url).origin}/api/admin/hiring/applications/${id}`;
+    const { buffer, fileName } = await buildApplicationPdf(id, { documentUrlPrefix });
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {

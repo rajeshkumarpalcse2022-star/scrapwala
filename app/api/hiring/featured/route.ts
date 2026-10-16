@@ -4,9 +4,9 @@ import { ApiError } from "@/lib/utils/api-error";
 import { successResponse, errorResponse } from "@/lib/utils/api-response";
 
 /**
- * Featured hiring form for the homepage promotion. Only authenticated
- * customers (role `user`) may see it — admin/collector/logged-out callers
- * receive 403 and the promotion stays hidden.
+ * Featured hiring form used by the header "Hiring" link visibility check.
+ * Only authenticated customers (role `user`) may see it — admin/collector/
+ * logged-out callers receive 403 and the link stays hidden.
  */
 export async function GET() {
   try {

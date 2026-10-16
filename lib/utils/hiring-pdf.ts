@@ -22,6 +22,14 @@ export interface PdfDocumentRef {
   label: string;
   fileName: string;
   note?: string;
+  /** When set, the entry renders as a clickable "view/download" link. */
+  url?: string;
+}
+
+export interface PdfEmbeddedImage {
+  label: string;
+  bytes: Buffer;
+  kind: "jpg" | "png";
 }
 
 export interface ApplicationPdfInput {
@@ -34,8 +42,8 @@ export interface ApplicationPdfInput {
   applicantPhone?: string;
   answers: PdfAnswer[];
   documents: PdfDocumentRef[];
-  /** Optional embedded photo (skipped gracefully when fetch fails). */
-  photo?: { bytes: Buffer; kind: "jpg" | "png" } | null;
+  /** Embedded image uploads (photo, signature); fetch failures are skipped. */
+  images: PdfEmbeddedImage[];
 }
 
 const PAGE_MARGIN = 50;
@@ -125,21 +133,6 @@ export function buildApplicationSummaryPdf(input: ApplicationPdfInput): Promise<
         ] as [string, string][]) : []),
       ]);
 
-      /* ── Photo (optional) ── */
-      if (input.photo) {
-        y = sectionTitle(doc, y, "APPLICANT PHOTO");
-        try {
-          doc.image(input.photo.bytes, PAGE_MARGIN, y, {
-            fit: [110, 130],
-          });
-          y += 140;
-        } catch {
-          doc.fillColor(MUTED).font("Helvetica").fontSize(10);
-          doc.text("Photo could not be embedded in this summary.", PAGE_MARGIN, y);
-          y += 18;
-        }
-      }
-
       /* ── Answers ── */
       y = sectionTitle(doc, y, "APPLICATION DETAILS");
       for (const answer of input.answers) {
@@ -159,28 +152,74 @@ export function buildApplicationSummaryPdf(input: ApplicationPdfInput): Promise<
       }
 
       /* ── Documents ── */
-      if (input.documents.length > 0) {
+      if (input.documents.length > 0 || input.images.length > 0) {
         if (y > doc.page.height - 120) {
           doc.addPage();
           y = PAGE_MARGIN;
         }
         y = sectionTitle(doc, y, "SUBMITTED DOCUMENTS");
-        for (const document of input.documents) {
+      }
+
+      /* Embedded images (photo, signature) — rendered inline */
+      if (input.images.length > 0) {
+        const imgWidth = 90;
+        const imgHeight = 110;
+        const gap = 14;
+        let col = 0;
+        let rowTop = y;
+        for (const image of input.images) {
+          const x = PAGE_MARGIN + col * (imgWidth + gap);
           doc.fillColor(DARK).font("Helvetica-Bold").fontSize(10);
-          doc.text(`${document.label}:`, PAGE_MARGIN, y, { lineBreak: false });
-          doc.fillColor(DARK).font("Helvetica").fontSize(10);
-          doc.text(document.fileName, PAGE_MARGIN + 150, y, {
+          doc.text(image.label, x, y, { width: imgWidth, lineBreak: false });
+          const labelY = y;
+          try {
+            doc.image(image.bytes, x, labelY + 16, { fit: [imgWidth, imgHeight] });
+          } catch {
+            doc.fillColor(MUTED).font("Helvetica").fontSize(8.5);
+            doc.text("(preview unavailable)", x, labelY + 16, { width: imgWidth });
+          }
+          col += 1;
+          if (col === 3) {
+            col = 0;
+            rowTop += imgHeight + 16 + gap;
+            y = rowTop;
+          }
+        }
+        if (col !== 0) {
+          y = rowTop + imgHeight + 16 + gap;
+        }
+      }
+
+      /* Non-embedded documents — clickable view/download links */
+      for (const document of input.documents) {
+        if (y > doc.page.height - 60) {
+          doc.addPage();
+          y = PAGE_MARGIN;
+        }
+        doc.fillColor(DARK).font("Helvetica-Bold").fontSize(10);
+        doc.text(`${document.label}:`, PAGE_MARGIN, y, { lineBreak: false });
+        doc.fillColor(DARK).font("Helvetica").fontSize(10);
+        doc.text(document.fileName, PAGE_MARGIN + 150, y, {
+          width: contentWidth - 150,
+          lineBreak: false,
+        });
+        y += 16;
+        if (document.url) {
+          doc.fillColor("#0b57d0").font("Helvetica").fontSize(9);
+          doc.text("Click to view or download →", PAGE_MARGIN + 150, y, {
             width: contentWidth - 150,
             lineBreak: false,
+            link: document.url,
+            underline: true,
           });
-          y += 16;
-          if (document.note) {
-            doc.fillColor(MUTED).font("Helvetica-Oblique").fontSize(8.5);
-            doc.text(document.note, PAGE_MARGIN + 150, y, {
-              width: contentWidth - 150,
-            });
-            y += 14;
-          }
+          y += 14;
+        }
+        if (document.note) {
+          doc.fillColor(MUTED).font("Helvetica-Oblique").fontSize(8.5);
+          doc.text(document.note, PAGE_MARGIN + 150, y, {
+            width: contentWidth - 150,
+          });
+          y += 14;
         }
       }
 

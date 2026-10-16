@@ -3,11 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Recycle, Menu, X, LogOut, CalendarCheck, History } from "lucide-react";
+import { Recycle, Menu, X, LogOut, CalendarCheck, History, ClipboardList } from "lucide-react";
 import Container from "@/components/common/Container";
 import { useAuth } from "@/hooks/useAuth";
 
-const navLinks = [
+interface NavLink {
+  href: string;
+  label: string;
+  highlight?: boolean;
+}
+
+const baseNavLinks: NavLink[] = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About" },
   { href: "/scrap-rates", label: "Scrap Rates" },
@@ -40,12 +46,81 @@ function getAvatarLabel(role: string): string {
   }
 }
 
+// Red blinking-dot for the "Hiring" nav link (draws attention when open).
+function HiringDot() {
+  return (
+    <span className="relative ml-2 inline-flex h-2 w-2 align-middle">
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+      <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
+    </span>
+  );
+}
+
+function NavLinkItem({
+  link,
+  className,
+  onClick,
+}: {
+  link: NavLink;
+  className: string;
+  onClick?: () => void;
+}) {
+  return (
+    <Link
+      href={link.href}
+      className={`inline-flex items-center ${className}`}
+      onClick={onClick}
+    >
+      {link.label}
+      {link.highlight && <HiringDot />}
+    </Link>
+  );
+}
+
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [hiringOpen, setHiringOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { user, isLoading, logout } = useAuth();
   const router = useRouter();
+
+  // Hiring link: only for logged-in customers, and only while admin has at
+  // least one published hiring form. The API re-checks the role server-side.
+  const isCustomer = !isLoading && !!user && user.role === "user";
+
+  useEffect(() => {
+    if (!isCustomer) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch("/api/hiring/featured", {
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+        const json = await response.json();
+        if (!cancelled && json?.success) {
+          setHiringOpen(!!json.data?.form);
+        }
+      } catch {
+        // The hiring link simply stays hidden.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isCustomer]);
+
+  // Gate on isCustomer too, so a stale hiringOpen value after logout never
+  // leaks the link to guests/admins/collectors.
+  const hiringVisible = isCustomer && hiringOpen;
+
+  // Order: Home, About, Scrap Rates, Blog, Terms, then Hiring (last).
+  const navLinks: NavLink[] = hiringVisible
+    ? [...baseNavLinks, { href: "/careers", label: "Hiring", highlight: true }]
+    : baseNavLinks;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -100,12 +175,10 @@ export default function Navbar() {
           <ul className="hidden items-center gap-1 lg:flex">
             {navLinks.map((link) => (
               <li key={link.href}>
-                <Link
-                  href={link.href}
+                <NavLinkItem
+                  link={link}
                   className="rounded-lg px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-primary-light hover:text-primary"
-                >
-                  {link.label}
-                </Link>
+                />
               </li>
             ))}
           </ul>
@@ -157,6 +230,18 @@ export default function Navbar() {
                       >
                         <History className="h-4 w-4" aria-hidden="true" />
                         Pickup History
+                      </Link>
+                    )}
+
+                    {canOpenMenu && (
+                      <Link
+                        href="/application-history"
+                        role="menuitem"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-primary-light hover:text-primary"
+                      >
+                        <ClipboardList className="h-4 w-4" aria-hidden="true" />
+                        Application History
                       </Link>
                     )}
 
@@ -255,13 +340,11 @@ export default function Navbar() {
               <ul className="space-y-1">
                 {navLinks.map((link) => (
                   <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      className="block rounded-lg px-3 py-2.5 text-base font-medium text-foreground transition-colors hover:bg-primary-light hover:text-primary"
+                    <NavLinkItem
+                      link={link}
+                      className="w-full rounded-lg px-3 py-2.5 text-base font-medium text-foreground transition-colors hover:bg-primary-light hover:text-primary"
                       onClick={() => setMobileOpen(false)}
-                    >
-                      {link.label}
-                    </Link>
+                    />
                   </li>
                 ))}
               </ul>
@@ -290,6 +373,17 @@ export default function Navbar() {
                     >
                       <History className="h-5 w-5" aria-hidden="true" />
                       Pickup History
+                    </Link>
+                  )}
+
+                  {canOpenMenu && (
+                    <Link
+                      href="/application-history"
+                      className="mb-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-base font-medium text-foreground transition-colors hover:bg-primary-light hover:text-primary"
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      <ClipboardList className="h-5 w-5" aria-hidden="true" />
+                      Application History
                     </Link>
                   )}
 

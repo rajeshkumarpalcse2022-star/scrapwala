@@ -451,6 +451,56 @@ export async function getFeaturedHiringForm(): Promise<{
   return { slug: latest.slug, title: latest.title, subtitle: latest.subtitle };
 }
 
+/* ── Application autofill (public) ── */
+
+export interface HiringAutofillDTO {
+  applicationId: string;
+  jobTitle: string;
+  submittedAt: string;
+  answers: { fieldKey: string; label: string; type: string; value: string }[];
+}
+
+/**
+ * Answers of the caller's OWN previous application, looked up by human
+ * Application ID (e.g. APP-000123). Used to auto-fill a new application form.
+ * Another user's application is never returned.
+ */
+export async function getOwnApplicationForAutofill(
+  applicationId: string,
+  userId: string
+): Promise<HiringAutofillDTO> {
+  await connectDB();
+  const safe = applicationId.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const application = await HiringApplication.findOne({
+    applicationId: { $regex: `^${safe}$`, $options: "i" },
+    applicant: new mongoose.Types.ObjectId(userId),
+  })
+    .select("applicationId formSnapshot.title answers submittedAt")
+    .lean<
+      Pick<IHiringApplication, "applicationId" | "formSnapshot" | "answers" | "submittedAt"> & {
+        _id: mongoose.Types.ObjectId;
+      }
+    >();
+  if (!application) {
+    throw new ApiError(
+      404,
+      "No application found with this Application ID on your account.",
+      "APPLICATION_NOT_FOUND"
+    );
+  }
+  return {
+    applicationId: application.applicationId,
+    jobTitle: application.formSnapshot.title,
+    submittedAt: toIso(application.submittedAt),
+    answers: application.answers.map((answer) => ({
+      fieldKey: answer.fieldKey,
+      label: answer.label,
+      type: answer.type,
+      value: answer.value,
+    })),
+  };
+}
+
 /* ── Upload staging ── */
 
 export async function stageHiringUpload(
@@ -821,6 +871,36 @@ export async function getOwnHiringApplication(
   return serializeDetail(app);
 }
 
+export interface OwnHiringApplicationListItem {
+  id: string;
+  applicationId: string;
+  jobTitle: string;
+  jobSlug: string;
+  status: string;
+  submittedAt: string;
+}
+
+/** All applications the logged-in customer has submitted, newest first. */
+export async function listOwnHiringApplications(
+  userId: string
+): Promise<OwnHiringApplicationListItem[]> {
+  await connectDB();
+  const apps = await HiringApplication.find({
+    applicant: new mongoose.Types.ObjectId(userId),
+  })
+    .sort({ submittedAt: -1 })
+    .select("applicationId formSnapshot.title formSnapshot.slug status submittedAt")
+    .lean();
+  return apps.map((app) => ({
+    id: String(app._id),
+    applicationId: app.applicationId,
+    jobTitle: app.formSnapshot.title,
+    jobSlug: app.formSnapshot.slug,
+    status: app.status,
+    submittedAt: toIso(app.submittedAt),
+  }));
+}
+
 export async function updateHiringApplicationStatus(
   id: string,
   status: IHiringApplication["status"]
@@ -944,7 +1024,8 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export async function buildApplicationPdf(
-  applicationId: string
+  applicationId: string,
+  options?: { documentUrlPrefix?: string }
 ): Promise<{ buffer: Buffer; fileName: string }> {
   await connectDB();
   if (!mongoose.Types.ObjectId.isValid(applicationId)) {
@@ -953,32 +1034,33 @@ export async function buildApplicationPdf(
   const app = await HiringApplication.findById(applicationId);
   if (!app) throw new ApiError(404, "Application not found", "NOT_FOUND");
 
-  // Embed the applicant photo when available; a failed fetch never blocks
-  // the summary itself.
-  let photo: { bytes: Buffer; kind: "jpg" | "png" } | null = null;
-  const photoRef = (app.uploads ?? []).find(
-    (upload: IHiringApplicationUpload) => upload.kind === "photo"
-  );
-  if (photoRef) {
+  // Embed image uploads (photo, signature) when available. WebP and other
+  // non-PDF-kit formats are converted to JPG via Cloudinary's format
+  // directive; a failed fetch falls back to a download link below.
+  const images: { label: string; bytes: Buffer; kind: "jpg" | "png" }[] = [];
+  const embeddedKeys = new Set<string>();
+  for (const upload of app.uploads ?? []) {
+    if (upload.kind !== "photo" && upload.kind !== "signature") continue;
     try {
       const document = await resolveApplicationDocument(
         String(app._id),
-        photoRef.fieldKey
+        upload.fieldKey
       );
+      const targetFormat: "jpg" | "png" =
+        document.format === "png" ? "png" : "jpg";
       const url = createHiringDeliveryUrl({
         publicId: document.cloudinaryPublicId,
         resourceType: document.resourceType,
-        format: document.format,
+        format: targetFormat,
         expiresInSeconds: 120,
       });
       const response = await fetch(url);
-      if (response.ok) {
-        const bytes = Buffer.from(await response.arrayBuffer());
-        if (document.format === "png") photo = { bytes, kind: "png" };
-        else if (document.format === "jpg") photo = { bytes, kind: "jpg" };
-      }
+      if (!response.ok) continue;
+      const bytes = Buffer.from(await response.arrayBuffer());
+      images.push({ label: upload.label, bytes, kind: targetFormat });
+      embeddedKeys.add(upload.fieldKey);
     } catch {
-      photo = null;
+      // Falls back to a clickable link in the documents list.
     }
   }
 
@@ -998,15 +1080,19 @@ export async function buildApplicationPdf(
       label: answer.label,
       value: answer.value,
     })),
-    documents: (app.uploads ?? []).map((upload: IHiringApplicationUpload) => ({
-      label: upload.label,
-      fileName: upload.fileName,
-      note:
-        upload.kind === "photo"
-          ? undefined
+    images,
+    documents: (app.uploads ?? [])
+      .filter((upload: IHiringApplicationUpload) => !embeddedKeys.has(upload.fieldKey))
+      .map((upload: IHiringApplicationUpload) => ({
+        label: upload.label,
+        fileName: upload.fileName,
+        url: options?.documentUrlPrefix
+          ? `${options.documentUrlPrefix}/documents/${upload.fieldKey}`
+          : undefined,
+        note: options?.documentUrlPrefix
+          ? "Requires login to this site — the link opens the document."
           : "Stored securely — open the application to view or download.",
-    })),
-    photo,
+      })),
   });
 
   return {
@@ -1030,6 +1116,8 @@ const hiringService = {
   listHiringApplications,
   getHiringApplicationDetail,
   getOwnHiringApplication,
+  listOwnHiringApplications,
+  getOwnApplicationForAutofill,
   updateHiringApplicationStatus,
   deleteHiringApplication,
   getApplicationDocumentDeliveryUrl,

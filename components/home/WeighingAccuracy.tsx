@@ -1,28 +1,23 @@
 import Image from "next/image";
 import Container from "@/components/common/Container";
-import HiringPromo from "@/components/home/HiringPromo";
 
 export default function WeighingAccuracy() {
   return (
     <section className="py-14 sm:py-20 lg:py-24">
       <Container>
         <div className="flex flex-col items-center gap-8 sm:gap-10 lg:flex-row lg:items-center lg:justify-center lg:gap-20">
-          {/* LEFT — Hiring promo (visible to logged-in customers) or weighing image */}
+          {/* LEFT — Weighing image */}
           <div className="order-2 flex w-full flex-1 justify-center lg:order-1 lg:w-auto lg:justify-end">
-            <HiringPromo
-              fallback={
-                <div className="relative h-[240px] w-[240px] sm:h-[320px] sm:w-[320px] lg:h-[380px] lg:w-[380px]">
-                  <Image
-                    src="/images/scrapuncle-weighing.png"
-                    alt="ScrapWala smart digital weighing scale for accurate scrap weighing"
-                    fill
-                    priority
-                    sizes="(max-width: 640px) 240px, (max-width: 1024px) 320px, 380px"
-                    className="object-contain"
-                  />
-                </div>
-              }
-            />
+            <div className="relative h-[240px] w-[240px] sm:h-[320px] sm:w-[320px] lg:h-[380px] lg:w-[380px]">
+              <Image
+                src="/images/scrapuncle-weighing.png"
+                alt="ScrapWala smart digital weighing scale for accurate scrap weighing"
+                fill
+                priority
+                sizes="(max-width: 640px) 240px, (max-width: 1024px) 320px, 380px"
+                className="object-contain"
+              />
+            </div>
           </div>
 
           {/* RIGHT — Text */}
