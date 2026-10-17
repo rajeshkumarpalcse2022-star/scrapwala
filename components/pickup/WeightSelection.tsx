@@ -93,7 +93,7 @@ export default function WeightSelection({
       </p>
 
       <div className="mt-8">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-lg font-bold text-foreground">Upload Scrap Photos</h3>
           <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
             Required

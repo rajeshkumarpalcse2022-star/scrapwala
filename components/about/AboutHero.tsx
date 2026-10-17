@@ -17,7 +17,7 @@ export default function AboutHero() {
             <span className="inline-block rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
               About ScrapWala
             </span>
-            <h1 className="mt-6 text-4xl font-bold leading-[1.1] tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+            <h1 className="mt-6 text-3xl font-bold leading-[1.1] tracking-tight text-foreground min-[400px]:text-4xl sm:text-5xl lg:text-6xl">
               Making Scrap Collection{" "}
               <span className="text-primary">Simple &amp; Sustainable</span>
             </h1>

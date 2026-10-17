@@ -81,7 +81,7 @@ export default function Footer() {
                 Contact
               </h3>
               <ul className="mt-4 space-y-3 text-sm text-muted">
-                <li>hello@scrapwala.example</li>
+                <li className="break-all">hello@scrapwala.example</li>
               </ul>
               <h3 className="mt-6 text-sm font-semibold uppercase tracking-wider text-foreground">
                 Legal

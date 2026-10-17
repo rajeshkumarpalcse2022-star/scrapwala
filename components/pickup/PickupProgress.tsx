@@ -25,7 +25,7 @@ export default function PickupProgress({ steps, currentStep }: PickupProgressPro
   return (
     <div className="mb-8">
       {/* Desktop stepper */}
-      <div className="hidden sm:block">
+      <div className="hidden lg:block">
         <ol className="flex items-center" role="list">
           {steps.map((step, index) => {
             const isCompleted = allCompleted || index < currentStepIndex;
@@ -83,7 +83,7 @@ export default function PickupProgress({ steps, currentStep }: PickupProgressPro
       </div>
 
       {/* Mobile compact indicator */}
-      <div className="sm:hidden">
+      <div className="lg:hidden">
         <div className="flex items-center justify-between mb-3">
           <span className="text-sm font-medium text-foreground">
             {allCompleted

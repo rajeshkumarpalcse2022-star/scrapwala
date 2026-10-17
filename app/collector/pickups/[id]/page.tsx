@@ -534,7 +534,7 @@ export default function PickupDetailPage({
               type="button"
               onClick={handleProceedToPayment}
               disabled={savingWeighing || updating || !weighingReady}
-              className="w-64 rounded-xl bg-primary py-3 text-sm font-semibold text-white transition-colors hover:bg-primary/90 min-h-11 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 sm:w-64 sm:flex-none rounded-xl bg-primary py-3 text-sm font-semibold text-white transition-colors hover:bg-primary/90 min-h-11 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {updating ? "Updating..." : "Proceed to Payment"}
             </button>
@@ -736,12 +736,12 @@ export default function PickupDetailPage({
               currentStatus === "payment_pending" ||
               currentStatus === "completed") && (
               <div className="rounded-2xl border border-border bg-card p-5">
-                <div className="mb-4 flex items-center justify-between">
+                <div className="mb-4 flex flex-wrap items-center justify-center gap-2 sm:justify-between">
                   <h3 className="text-sm font-semibold text-foreground">
                     Record Scrap Weight
                   </h3>
                   {currentStatus === "weighing" && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       {weighingSuccess && (
                         <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
                           <CheckCircle className="h-3.5 w-3.5" />
@@ -749,7 +749,7 @@ export default function PickupDetailPage({
                         </span>
                       )}
                       {weighingError && (
-                        <span className="flex items-center gap-1.5 text-xs font-medium text-red-600">
+                        <span className="flex basis-full items-center gap-1.5 text-left text-xs font-medium text-red-600 sm:basis-auto">
                           <AlertCircle className="h-3.5 w-3.5" />
                           {weighingError}
                         </span>

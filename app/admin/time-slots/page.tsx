@@ -766,7 +766,7 @@ export default function AdminTimeSlotsPage() {
 
       <AdminModal open={addOpen} onClose={() => setAddOpen(false)} title="Add Time Slot">
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
               <input
@@ -837,7 +837,7 @@ export default function AdminTimeSlotsPage() {
 
       <AdminModal open={editOpen} onClose={() => setEditOpen(false)} title="Edit Time Slot">
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
               <input

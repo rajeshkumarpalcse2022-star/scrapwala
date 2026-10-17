@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu } from "lucide-react";
 import CollectorSidebar from "@/components/collector/CollectorSidebar";
 import CollectorHeader from "@/components/collector/CollectorHeader";
 import NotificationBell from "@/components/collector/NotificationBell";
@@ -48,15 +48,7 @@ export default function CollectorLayout({
               aria-hidden="true"
             />
             <div className="absolute left-0 top-0 h-full w-64 bg-white shadow-xl">
-              <div className="flex justify-end p-4">
-                <button
-                  onClick={closeSidebar}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <CollectorSidebar open={sidebarOpen} onClose={closeSidebar} />
+              <CollectorSidebar open={false} onClose={closeSidebar} />
             </div>
           </div>
         )}

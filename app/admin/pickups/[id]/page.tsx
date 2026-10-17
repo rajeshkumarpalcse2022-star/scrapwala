@@ -351,7 +351,7 @@ export default function AdminPickupDetailPage({
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 pb-24">
+      <div className="max-w-7xl mx-auto pb-24">
         <Link
           href="/admin/pickups"
           className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
@@ -372,7 +372,7 @@ export default function AdminPickupDetailPage({
 
   if (error || !pickup) {
     return (
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto">
         <Link
           href="/admin/pickups"
           className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
@@ -408,7 +408,7 @@ export default function AdminPickupDetailPage({
     .join(", ");
 
   return (
-    <div className="max-w-7xl mx-auto px-4 pb-24">
+    <div className="max-w-7xl mx-auto pb-24">
       <Link
         href="/admin/pickups"
         className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"

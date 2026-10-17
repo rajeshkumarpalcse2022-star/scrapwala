@@ -221,7 +221,7 @@ export default function CheckRatesSheet({
 
           {isLoading && (
             <div
-              className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4"
+              className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4"
               role="status"
               aria-label="Loading current rates"
             >
@@ -249,7 +249,7 @@ export default function CheckRatesSheet({
           {!isLoading && !loadError && (
             <>
               {filtered.length > 0 ? (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
                   {filtered.map((rate) => (
                     <ScrapRateCard key={rate.id} rate={rate} />
                   ))}

@@ -234,7 +234,7 @@ export default function AdminPickupsPage() {
   const hasFilters = search || status !== "all" || date;
 
   return (
-    <div className="max-w-7xl mx-auto px-4">
+    <div className="max-w-7xl mx-auto">
       <AdminPageHeader
         title="Pickup Management"
         subtitle="Manage and track all scrap pickup requests."

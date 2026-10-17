@@ -609,7 +609,7 @@ export default function LocationStep({
           <label className="mb-2 block text-sm font-medium text-foreground">
             Address Type
           </label>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             {(["home", "office", "other"] as const).map((type) => (
               <button
                 key={type}

@@ -148,7 +148,7 @@ export default function DateSelection({
                 </span>
                 <span
                   className={cn(
-                    "text-xs",
+                    "block max-w-full truncate text-xs",
                     isSelected ? "text-primary" : "text-muted"
                   )}
                 >

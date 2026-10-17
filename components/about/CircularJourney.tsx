@@ -17,28 +17,36 @@ export default function CircularJourney() {
         </FadeIn>
       </Container>
 
-      {/* Full-bleed journey image */}
+      {/* Full-bleed journey image — swipeable on mobile so it stays legible */}
       <FadeIn delay={0.15} className="relative mx-auto mt-8 w-full max-w-[1400px]">
-        {/* Edge blending */}
-        <div
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 sm:w-16"
-          style={{ background: "linear-gradient(to right, var(--background, #eef7f0) 0%, transparent 100%)" }}
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 sm:w-16"
-          style={{ background: "linear-gradient(to left, var(--background, #eef7f0) 0%, transparent 100%)" }}
-          aria-hidden="true"
-        />
+        <div className="overflow-x-auto pb-2 [-webkit-overflow-scrolling:touch]">
+          <div className="relative min-w-[760px] px-4 sm:min-w-[900px] sm:px-6 lg:min-w-0 lg:px-0">
+            {/* Edge blending */}
+            <div
+              className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 sm:w-16"
+              style={{ background: "linear-gradient(to right, var(--background, #eef7f0) 0%, transparent 100%)" }}
+              aria-hidden="true"
+            />
+            <div
+              className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 sm:w-16"
+              style={{ background: "linear-gradient(to left, var(--background, #eef7f0) 0%, transparent 100%)" }}
+              aria-hidden="true"
+            />
 
-        <Image
-          src="/images/scrapwala-journey.png"
-          alt="ScrapWala circular journey — from doorstep pickup to collection point, partner recyclers, and recycled products resold"
-          width={2172}
-          height={724}
-          priority
-          className="h-auto w-full"
-        />
+            <Image
+              src="/images/scrapwala-journey.png"
+              alt="ScrapWala circular journey — from doorstep pickup to collection point, partner recyclers, and recycled products resold"
+              width={2172}
+              height={724}
+              priority
+              className="h-auto w-full"
+            />
+          </div>
+        </div>
+
+        <p className="mt-1 text-center text-xs text-muted lg:hidden">
+          ← Swipe to see the full journey →
+        </p>
       </FadeIn>
     </section>
   );

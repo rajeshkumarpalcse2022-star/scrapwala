@@ -103,7 +103,7 @@ export default function AllPickupsPage() {
           </div>
 
           {pagination && pagination.totalPages > 1 && (
-            <div className="mt-6 flex justify-center gap-2">
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
               {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
                 <Link
                   key={page}

@@ -56,7 +56,7 @@ function EditButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary-dark focus:outline-none focus:underline disabled:opacity-50"
+      className="flex shrink-0 items-center gap-1 text-sm font-medium text-primary hover:text-primary-dark focus:outline-none focus:underline disabled:opacity-50"
     >
       <Edit className="h-3.5 w-3.5" aria-hidden="true" />
       Edit {label}
@@ -113,7 +113,7 @@ export default function PickupSummary({
       <div className="mt-6 space-y-4">
         {/* Vehicle */}
         <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-semibold text-foreground">Vehicle</h3>
             <EditButton
               onClick={onEditVehicle}
@@ -134,7 +134,7 @@ export default function PickupSummary({
 
         {/* Address */}
         <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-semibold text-foreground">Pickup Location</h3>
             <EditButton
               onClick={onEditLocation}
@@ -176,7 +176,7 @@ export default function PickupSummary({
 
         {/* Scrap Items */}
         <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-semibold text-foreground">Scrap Items</h3>
             <EditButton
               onClick={onEditScrap}
@@ -198,7 +198,7 @@ export default function PickupSummary({
 
         {/* Weight */}
         <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-semibold text-foreground">Expected Weight</h3>
             <EditButton
               onClick={onEditWeight}
@@ -218,7 +218,7 @@ export default function PickupSummary({
 
         {/* Rates */}
         <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-semibold text-foreground">Expected Rates</h3>
             <EditButton
               onClick={onEditRates}
@@ -249,7 +249,7 @@ export default function PickupSummary({
 
         {/* Date & Time */}
         <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-semibold text-foreground">Date & Time</h3>
             <EditButton
               onClick={onEditDateTime}
