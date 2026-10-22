@@ -70,6 +70,8 @@ interface PickupData {
     city: string;
     state: string;
     pinCode: string;
+    latitude?: number | null;
+    longitude?: number | null;
   };
   scheduledDate: string;
   timeSlot: { startTime: string; endTime: string };
@@ -665,7 +667,9 @@ export default function PickupDetailPage({
             />
             <PickupAddressCard
               address={`${pickup.address.houseFlatBuilding}, ${pickup.address.streetArea}`}
-              city={pickup.address.city}
+              city={`${pickup.address.city}, ${pickup.address.pinCode}`}
+              latitude={pickup.address.latitude}
+              longitude={pickup.address.longitude}
             />
           </div>
 
