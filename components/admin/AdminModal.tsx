@@ -3,18 +3,29 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 
+type ModalSize = "md" | "lg" | "xl";
+
 interface AdminModalProps {
   open: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /** Content width: md (default), lg, xl — used for previews/tables. */
+  size?: ModalSize;
 }
+
+const SIZE_CLASSES: Record<ModalSize, string> = {
+  md: "max-w-lg",
+  lg: "max-w-2xl",
+  xl: "max-w-4xl",
+};
 
 export default function AdminModal({
   open,
   onClose,
   title,
   children,
+  size = "md",
 }: AdminModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -37,7 +48,9 @@ export default function AdminModal({
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative z-10 w-full max-w-lg rounded-xl bg-white shadow-xl transition-all">
+      <div
+        className={`relative z-10 w-full ${SIZE_CLASSES[size]} rounded-xl bg-white shadow-xl transition-all`}
+      >
         <div className="flex items-center justify-between border-b px-6 py-4">
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
           <button

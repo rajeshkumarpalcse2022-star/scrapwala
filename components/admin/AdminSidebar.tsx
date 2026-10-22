@@ -18,6 +18,8 @@ import {
   Settings,
   BriefcaseBusiness,
   PhoneCall,
+  Newspaper,
+  FolderTree,
   X,
   LogOut,
 } from "lucide-react";
@@ -46,6 +48,13 @@ const NAV_SECTIONS = [
     items: [
       { href: "/admin/categories", label: "Scrap Categories", icon: Tag },
       { href: "/admin/rates", label: "Scrap Rates", icon: IndianRupee },
+    ],
+  },
+  {
+    label: "CONTENT",
+    items: [
+      { href: "/admin/blogs", label: "Blog Management", icon: Newspaper },
+      { href: "/admin/blog-categories", label: "Blog Categories", icon: FolderTree },
     ],
   },
   {
