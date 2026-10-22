@@ -10,8 +10,10 @@ import {
   Clock,
   History,
   Loader2,
+  Phone,
   ShieldAlert,
   Truck,
+  UserRound,
   Weight,
   XCircle,
 } from "lucide-react";
@@ -39,6 +41,7 @@ interface HistoryPickup {
   expectedWeight?: string;
   actualAmount?: number;
   createdAt: string;
+  collector?: { name: string; phone?: string | null } | null;
 }
 
 const PAGE_SIZE = 20;
@@ -121,6 +124,26 @@ function HistoryCard({
           <Truck className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{vehicleLabel(pickup.vehicle)}</span>
         </div>
+        {pickup.collector?.name && (
+          <div className="flex items-center gap-2">
+            <UserRound className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>
+              Collector:{" "}
+              <span className="font-medium text-foreground">
+                {pickup.collector.name}
+              </span>
+            </span>
+            {pickup.collector.phone && (
+              <a
+                href={`tel:${pickup.collector.phone}`}
+                className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
+              >
+                <Phone className="h-3 w-3" aria-hidden="true" />
+                Call
+              </a>
+            )}
+          </div>
+        )}
         {pickup.expectedWeight && (
           <div className="flex items-center gap-2">
             <Weight className="h-4 w-4 shrink-0" aria-hidden="true" />

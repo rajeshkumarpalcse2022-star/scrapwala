@@ -31,15 +31,27 @@ export default function CollectorSidebar({ open, onClose }: CollectorSidebarProp
   const pathname = usePathname();
   const router = useRouter();
 
-  const isActive = (href: string) => {
+  const matches = (href: string) => {
     if (href === "/collector") return pathname === "/collector";
     return pathname === href || pathname.startsWith(href + "/");
   };
 
+  // Most-specific item wins: /collector/pickups/completed must light up
+  // only "Completed", not also the parent "Today's Pickups" prefix.
+  const activeHref = [...NAV_ITEMS.map(({ href }) => href)]
+    .sort((a, b) => b.length - a.length)
+    .find((href) => matches(href));
+
   const sidebarContent = (
     <div className="flex h-full flex-col bg-white">
       <div className="flex items-center justify-between px-6 py-5">
-        <span className="text-xl font-bold text-green-600">♻ ScrapWala</span>
+        <Link
+          href="/"
+          onClick={onClose}
+          className="text-xl font-bold text-green-600 transition-colors hover:text-green-700"
+        >
+          ♻ ScrapWala
+        </Link>
         <button
           onClick={onClose}
           className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 lg:hidden"
@@ -55,7 +67,7 @@ export default function CollectorSidebar({ open, onClose }: CollectorSidebarProp
             href={href}
             onClick={onClose}
             className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-              isActive(href)
+              activeHref === href
                 ? "bg-primary text-white"
                 : "text-gray-700 hover:bg-gray-100"
             }`}

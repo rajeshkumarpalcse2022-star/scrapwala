@@ -106,9 +106,13 @@ export default function AdminSidebar({ open, onClose }: AdminSidebarProps) {
   const sidebarContent = (
     <div className="flex h-full flex-col bg-white">
       <div className="flex items-center justify-between px-6 py-5">
-        <span className="text-xl font-bold text-green-600">
+        <Link
+          href="/"
+          onClick={onClose}
+          className="text-xl font-bold text-green-600 transition-colors hover:text-green-700"
+        >
           ♻ ScrapWala Admin
-        </span>
+        </Link>
         <button
           onClick={onClose}
           className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 lg:hidden"

@@ -51,6 +51,7 @@ interface TrackedPickup {
   actualAmount: number;
   paymentStatus: string;
   createdAt: string;
+  collector?: { name: string; phone?: string | null } | null;
 }
 
 export default function PickupTrackingPage() {
@@ -289,6 +290,37 @@ export default function PickupTrackingPage() {
                         )}
                       </div>
                     </div>
+
+                    {/* Assigned collector — visible as soon as admin assigns */}
+                    {pickup.collector?.name && (
+                      <div className="rounded-xl border border-primary/30 bg-primary-light p-5">
+                        <div className="flex items-center gap-2">
+                          <Truck className="h-4 w-4 text-primary" aria-hidden="true" />
+                          <p className="text-sm font-medium text-primary">
+                            Your Collector
+                          </p>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-foreground">
+                              {pickup.collector.name}
+                            </p>
+                            <p className="text-xs text-muted">
+                              Coming to collect your scrap
+                            </p>
+                          </div>
+                          {pickup.collector.phone && (
+                            <a
+                              href={`tel:${pickup.collector.phone}`}
+                              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary-dark"
+                            >
+                              <Phone className="h-3.5 w-3.5" aria-hidden="true" />
+                              Call
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="rounded-xl border border-border bg-card p-5">
                       <div className="flex items-center gap-2">

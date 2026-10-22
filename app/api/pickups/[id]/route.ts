@@ -13,6 +13,13 @@ export async function GET(
 
     const pickup = await getCustomerPickupById(id, user.id);
 
+    // After populate() this is the assigned collector's user doc (or null
+    // before admin assignment); never expose raw ObjectIds to the client.
+    const collector = pickup.collector as unknown as
+      | { name?: string; phone?: string }
+      | null
+      | undefined;
+
     const safePickup = {
       pickupId: pickup.pickupId,
       status: pickup.status,
@@ -20,6 +27,13 @@ export async function GET(
       scheduledDate: pickup.scheduledDate,
       timeSlot: pickup.timeSlot,
       address: pickup.address,
+      collector:
+        collector && typeof collector === "object" && collector.name
+          ? {
+              name: collector.name,
+              phone: collector.phone ?? null,
+            }
+          : null,
       items: pickup.items.map((item) => ({
         categoryName: item.categoryName,
         rate: item.rate,

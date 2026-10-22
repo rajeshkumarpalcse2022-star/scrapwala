@@ -301,6 +301,7 @@ export async function getCustomerPickups(
       .skip(skip)
       .limit(limit)
       .select("-__v -updatedAt")
+      .populate("collector", "name phone")
       .lean(),
     Pickup.countDocuments(query),
   ]);
@@ -327,6 +328,7 @@ export async function getCustomerPickupById(
     customer: new mongoose.Types.ObjectId(customerId),
   })
     .select("-__v -updatedAt")
+    .populate("collector", "name phone")
     .lean();
 
   if (!pickup) {
