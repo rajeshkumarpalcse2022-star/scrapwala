@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import connectDB from "@/lib/db/mongoose";
 import { ApiError } from "@/lib/utils/api-error";
+import { destroyAsset } from "@/services/cloudinary";
 import HomepageAd, { type IHomepageAd } from "@/models/HomepageAd";
 import type {
   CreateHomepageAdInput,
@@ -155,11 +156,15 @@ export async function updateHomepageAd(
 
   if (input.title !== undefined) doc.title = input.title;
   if (input.image) {
+    const previousPublicId = doc.image.publicId;
     doc.image = {
       url: input.image.url,
       publicId: input.image.publicId,
       alt: input.image.alt || doc.title,
     };
+    if (previousPublicId && previousPublicId !== input.image.publicId) {
+      await destroyAsset(previousPublicId);
+    }
   }
   if (input.linkUrl !== undefined) doc.linkUrl = input.linkUrl?.trim() || null;
   if (input.isActive !== undefined) doc.isActive = input.isActive;
@@ -173,5 +178,7 @@ export async function updateHomepageAd(
 export async function deleteHomepageAd(id: string): Promise<void> {
   await connectDB();
   const doc = await loadAd(id);
+  const publicId = doc.image.publicId;
   await doc.deleteOne();
+  if (publicId) await destroyAsset(publicId);
 }
