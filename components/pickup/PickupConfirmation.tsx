@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import {
   CheckCircle,
   MapPin,
@@ -15,6 +16,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import PickupTimeline from "@/components/pickup/PickupTimeline";
+
+const CONFIRMATION_AUDIO_SRC = "/audio/pickup-confirmation.mp3";
 
 interface ConfirmedPickup {
   pickupId: string;
@@ -58,6 +61,25 @@ function formatTime(t: string): string {
 }
 
 export default function PickupConfirmation({ pickup }: PickupConfirmationProps) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Auto-plays exactly once after a successful booking: this component is
+  // rendered only on the success step, [] keeps rerenders silent, and the
+  // StrictMode double-invoke simply restarts the same single play. If the
+  // browser blocks autoplay, the sound is skipped silently (no replay UI).
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    audio.currentTime = 0;
+    const attempt = audio.play();
+    if (attempt) attempt.catch(() => undefined);
+
+    return () => {
+      audio.pause();
+    };
+  }, []);
+
   const formatDateFull = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString("en-IN", {
@@ -70,6 +92,15 @@ export default function PickupConfirmation({ pickup }: PickupConfirmationProps) 
 
   return (
     <div className="text-center">
+      {/* Confirmation sound: auto-played once on this success mount only */}
+      <audio
+        ref={audioRef}
+        src={CONFIRMATION_AUDIO_SRC}
+        preload="auto"
+        className="hidden"
+        aria-hidden="true"
+      />
+
       {/* Success Icon */}
       <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
         <CheckCircle className="h-10 w-10 text-primary" aria-hidden="true" />
