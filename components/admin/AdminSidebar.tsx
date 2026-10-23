@@ -20,6 +20,7 @@ import {
   PhoneCall,
   Newspaper,
   FolderTree,
+  Megaphone,
   X,
   LogOut,
 } from "lucide-react";
@@ -55,6 +56,7 @@ const NAV_SECTIONS = [
     items: [
       { href: "/admin/blogs", label: "Blog Management", icon: Newspaper },
       { href: "/admin/blog-categories", label: "Blog Categories", icon: FolderTree },
+      { href: "/admin/homepage-ads", label: "Homepage Ads", icon: Megaphone },
     ],
   },
   {

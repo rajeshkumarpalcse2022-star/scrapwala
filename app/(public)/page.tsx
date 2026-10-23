@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Hero from "@/components/home/Hero";
+import HomepageAdBanner from "@/components/home/HomepageAdBanner";
 import WeighingAccuracy from "@/components/home/WeighingAccuracy";
 import HowItWorks from "@/components/home/HowItWorks";
 import CTASection from "@/components/home/CTASection";
@@ -16,6 +17,7 @@ export default function HomePage() {
   return (
     <>
       <Hero />
+      <HomepageAdBanner />
       <WeighingAccuracy />
       <HowItWorks />
       <CTASection />
