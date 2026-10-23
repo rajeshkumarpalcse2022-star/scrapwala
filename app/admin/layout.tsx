@@ -42,16 +42,7 @@ export default function AdminLayout({
         </div>
 
         {sidebarOpen && (
-          <div className="fixed inset-0 z-50">
-            <div
-              className="absolute inset-0 bg-black/50"
-              onClick={closeSidebar}
-              aria-hidden="true"
-            />
-            <div className="absolute left-0 top-0 h-full w-64 bg-white shadow-xl">
-              <AdminSidebar open={sidebarOpen} onClose={closeSidebar} />
-            </div>
-          </div>
+          <AdminSidebar open={sidebarOpen} onClose={closeSidebar} />
         )}
 
         <main className="min-h-screen overflow-y-auto p-4">{children}</main>
