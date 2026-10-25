@@ -20,9 +20,9 @@ export default function ScrapRatesHero() {
             Know the estimated value of your recyclable materials and schedule a
             convenient doorstep pickup with ScrapWala.
           </p>
-          <div className="mx-auto mt-6 flex items-center justify-center gap-2 text-sm text-muted">
-            <Search className="h-4 w-4 text-primary" aria-hidden="true" />
-            <span>Browse rates, search items, and book a pickup</span>
+          <div className="mx-auto mt-6 flex max-w-sm flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm text-muted">
+            <Search className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            <span className="text-center">Browse rates, search items, and book a pickup</span>
           </div>
         </div>
       </Container>

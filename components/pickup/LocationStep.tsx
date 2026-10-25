@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import MapPicker, { type MapCoords } from "@/components/pickup/MapPicker";
 import {
   CheckCircle,
+  Check,
+  ChevronDown,
   XCircle,
   Loader2,
   AlertTriangle,
@@ -32,6 +34,141 @@ const defaultAddress: PickupAddress = {
   latitude: null,
   longitude: null,
 };
+
+/**
+ * Custom state dropdown — opens below the field (unlike the native <select>
+ * popup which browsers render as a floating overlay). Includes a quick-search
+ * box for the 36-state list.
+ */
+function StateSelect({
+  id,
+  value,
+  onChange,
+  hasError,
+}: {
+  id: string;
+  value: string;
+  onChange: (state: string) => void;
+  hasError?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  // Close on outside click / Escape.
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  // Reset the search and scroll the current selection into view on open.
+  useEffect(() => {
+    if (!open) return;
+    const id = requestAnimationFrame(() => {
+      setQuery("");
+      listRef.current
+        ?.querySelector('[data-selected="true"]')
+        ?.scrollIntoView({ block: "nearest" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [open]);
+
+  const trimmed = query.trim().toLowerCase();
+  const options = trimmed
+    ? INDIAN_STATES.filter((state) => state.toLowerCase().includes(trimmed))
+    : INDIAN_STATES;
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        id={id}
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={cn(
+          "flex w-full items-center justify-between gap-2 rounded-lg border bg-card px-4 py-2.5 text-left text-foreground focus:outline-none focus:ring-2 focus:ring-primary",
+          hasError ? "border-destructive" : "border-border",
+          !value && "text-muted"
+        )}
+      >
+        <span className="truncate">{value || "Select state"}</span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 text-muted transition-transform",
+            open && "rotate-180"
+          )}
+          aria-hidden="true"
+        />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-lg border border-border bg-card shadow-lg">
+          <div className="border-b border-border p-2">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search state..."
+              aria-label="Search state"
+              autoFocus
+              className="w-full rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <ul
+            ref={listRef}
+            role="listbox"
+            aria-label="States"
+            className="max-h-56 overflow-y-auto p-1"
+          >
+            {options.length === 0 && (
+              <li className="px-3 py-2 text-sm text-muted">No state found</li>
+            )}
+            {options.map((state) => (
+              <li key={state}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={state === value}
+                  data-selected={state === value}
+                  onClick={() => {
+                    onChange(state);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm",
+                    state === value
+                      ? "bg-primary-light font-medium text-primary"
+                      : "text-foreground hover:bg-muted-light"
+                  )}
+                >
+                  <span className="truncate">{state}</span>
+                  {state === value && (
+                    <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 type ServiceabilityState =
   | "idle"
@@ -643,6 +780,7 @@ export default function LocationStep({
             onChange={(e) => updateField("fullName", e.target.value)}
             className={inputClass(errors.fullName)}
             placeholder="Enter your full name"
+            autoComplete="name"
           />
           {errors.fullName && (
             <p className="mt-1 text-sm text-destructive">{errors.fullName}</p>
@@ -666,6 +804,7 @@ export default function LocationStep({
             className={inputClass(errors.phone)}
             placeholder="10-digit phone number"
             maxLength={10}
+            autoComplete="tel"
           />
           {errors.phone && (
             <p className="mt-1 text-sm text-destructive">{errors.phone}</p>
@@ -686,6 +825,7 @@ export default function LocationStep({
             onChange={(e) => updateField("houseFlatBuilding", e.target.value)}
             className={inputClass(errors.houseFlatBuilding)}
             placeholder="e.g., Flat 4B, Sunshine Apartments"
+            autoComplete="address-line1"
           />
           {errors.houseFlatBuilding && (
             <p className="mt-1 text-sm text-destructive">
@@ -708,6 +848,7 @@ export default function LocationStep({
             onChange={(e) => updateField("streetArea", e.target.value)}
             className={inputClass(errors.streetArea)}
             placeholder="e.g., MG Road, near Central Park"
+            autoComplete="address-line2"
           />
           {errors.streetArea && (
             <p className="mt-1 text-sm text-destructive">{errors.streetArea}</p>
@@ -745,6 +886,7 @@ export default function LocationStep({
             onChange={(e) => updateField("city", e.target.value)}
             className={inputClass(errors.city)}
             placeholder="e.g., New Delhi"
+            autoComplete="address-level2"
           />
           {errors.city && (
             <p className="mt-1 text-sm text-destructive">{errors.city}</p>
@@ -759,21 +901,12 @@ export default function LocationStep({
             >
               State *
             </label>
-            <select
+            <StateSelect
               id="state"
               value={address.state}
-              onChange={(e) => updateField("state", e.target.value)}
-              className={cn(inputClass(errors.state), !address.state && "text-muted")}
-            >
-              <option value="" disabled>
-                Select state
-              </option>
-              {INDIAN_STATES.map((state) => (
-                <option key={state} value={state}>
-                  {state}
-                </option>
-              ))}
-            </select>
+              onChange={(state) => updateField("state", state)}
+              hasError={errors.state}
+            />
             {errors.state && (
               <p className="mt-1 text-sm text-destructive">{errors.state}</p>
             )}
@@ -798,6 +931,7 @@ export default function LocationStep({
               className={inputClass(errors.pinCode)}
               placeholder="6-digit PIN code"
               maxLength={6}
+              autoComplete="postal-code"
             />
             {errors.pinCode && (
               <p className="mt-1 text-sm text-destructive">{errors.pinCode}</p>

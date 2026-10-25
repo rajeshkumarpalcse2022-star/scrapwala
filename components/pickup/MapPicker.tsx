@@ -137,7 +137,7 @@ export default function MapPicker({ value, onChange }: MapPickerProps) {
   }, [value?.latitude, value?.longitude, mapReady]);
 
   return (
-    <div className="relative">
+    <div className="relative isolate z-0">
       <div
         ref={containerRef}
         className="h-64 w-full overflow-hidden rounded-xl border border-border bg-muted-light sm:h-80"
