@@ -23,7 +23,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const SITE_URL = "https://scrapwala.example";
+const SITE_URL = "https://scrapi.in";
 const PAGE_SIZE = 9;
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;

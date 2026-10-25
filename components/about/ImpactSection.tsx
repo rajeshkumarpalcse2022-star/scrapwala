@@ -1,6 +1,7 @@
 import { Mail, Phone, MapPin } from "lucide-react";
 import Container from "@/components/common/Container";
 import FadeIn from "./FadeIn";
+import { SUPPORT_EMAIL, SUPPORT_PHONE_DISPLAY } from "@/lib/constants/site";
 
 export default function ImpactSection() {
   return (
@@ -21,7 +22,7 @@ export default function ImpactSection() {
               <Mail className="h-6 w-6 text-primary" strokeWidth={1.8} />
             </div>
             <h3 className="text-sm font-semibold text-foreground">Email</h3>
-            <p className="text-sm text-muted">hello@scrapwala.example</p>
+            <p className="text-sm break-all text-muted">{SUPPORT_EMAIL}</p>
           </div>
 
           <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/5">
@@ -29,7 +30,7 @@ export default function ImpactSection() {
               <Phone className="h-6 w-6 text-primary" strokeWidth={1.8} />
             </div>
             <h3 className="text-sm font-semibold text-foreground">Phone</h3>
-            <p className="text-sm text-muted">hello@scrapwala.example</p>
+            <p className="text-sm text-muted">{SUPPORT_PHONE_DISPLAY}</p>
           </div>
 
           <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/5">

@@ -67,7 +67,7 @@ describe("blog content utils", () => {
 
   describe("sanitizeHref", () => {
     it("keeps http(s) and mailto links", () => {
-      assert.equal(sanitizeHref("https://scrapwala.example/x"), "https://scrapwala.example/x");
+      assert.equal(sanitizeHref("https://scrapi.in/x"), "https://scrapi.in/x");
       assert.equal(sanitizeHref("http://a.test"), "http://a.test");
       assert.equal(sanitizeHref("mailto:hi@a.test"), "mailto:hi@a.test");
     });
@@ -98,10 +98,10 @@ describe("blog content utils", () => {
     });
 
     it("parses links with safe hrefs only", () => {
-      const good = parseInlineText("[Read more](https://scrapwala.example)");
+      const good = parseInlineText("[Read more](https://scrapi.in)");
       assert.equal(good[0]?.type, "a");
       const link = good[0] as Extract<InlineNode, { type: "a" }>;
-      assert.equal(link.href, "https://scrapwala.example");
+      assert.equal(link.href, "https://scrapi.in");
 
       const bad = parseInlineText("[click](javascript:alert(1))");
       assert.equal(bad.every((node) => node.type === "text"), true);

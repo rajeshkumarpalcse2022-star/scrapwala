@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Recycle } from "lucide-react";
+import Logo from "@/components/common/Logo";
 
 export default function AuthLayout({
   children,
@@ -12,10 +12,9 @@ export default function AuthLayout({
         <div className="mx-auto flex h-16 max-w-6xl items-center px-4 sm:px-6 lg:px-8">
           <Link
             href="/"
-            className="flex items-center gap-2.5 text-xl font-bold text-primary"
+            className="flex items-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <Recycle className="h-6 w-6" aria-hidden="true" />
-            <span>ScrapWala</span>
+            <Logo className="h-8 w-auto" priority />
           </Link>
         </div>
       </header>

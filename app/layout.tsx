@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     "eco-friendly",
     "ScrapWala",
   ],
-  metadataBase: new URL("https://scrapwala.example"),
+  metadataBase: new URL("https://scrapi.in"),
   openGraph: {
     type: "website",
     locale: "en_IN",

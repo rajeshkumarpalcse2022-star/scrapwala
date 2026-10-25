@@ -9,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/admin", "/collector", "/dashboard"],
       },
     ],
-    sitemap: "https://scrapwala.example/sitemap.xml",
+    sitemap: "https://scrapi.in/sitemap.xml",
   };
 }

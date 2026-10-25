@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Recycle, Menu, X, LogOut, CalendarCheck, History, ClipboardList } from "lucide-react";
+import { Menu, X, LogOut, CalendarCheck, History, ClipboardList } from "lucide-react";
 import Container from "@/components/common/Container";
+import Logo from "@/components/common/Logo";
 import { useAuth } from "@/hooks/useAuth";
 
 interface NavLink {
@@ -166,9 +167,8 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <Container>
         <nav className="flex h-16 items-center justify-between" aria-label="Main navigation">
-          <Link href="/" className="flex items-center gap-2.5 font-bold text-xl text-primary">
-            <Recycle className="h-6 w-6" aria-hidden="true" />
-            <span>ScrapWala</span>
+          <Link href="/" className="flex items-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+            <Logo className="h-8 w-auto sm:h-9" priority />
           </Link>
 
           {/* Desktop links */}
@@ -320,11 +320,10 @@ export default function Navbar() {
             <div className="flex items-center justify-between border-b border-border px-4 py-4">
               <Link
                 href="/"
-                className="flex items-center gap-2.5 font-bold text-xl text-primary"
+                className="flex items-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 onClick={() => setMobileOpen(false)}
               >
-                <Recycle className="h-6 w-6" aria-hidden="true" />
-                <span>ScrapWala</span>
+                <Logo className="h-8 w-auto" />
               </Link>
               <button
                 type="button"

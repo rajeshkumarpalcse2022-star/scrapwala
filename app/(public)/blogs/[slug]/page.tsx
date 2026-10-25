@@ -23,7 +23,7 @@ import {
 // via revalidateBlogPages(). Published state itself stays DB-driven.
 export const revalidate = 300;
 
-const SITE_URL = "https://scrapwala.example";
+const SITE_URL = "https://scrapi.in";
 
 type Params = Promise<{ slug: string }>;
 

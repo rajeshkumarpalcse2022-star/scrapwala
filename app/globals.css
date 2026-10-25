@@ -384,3 +384,92 @@ body {
     animation: none;
   }
 }
+
+/* ── Legal pages (Privacy, Terms, Refunds) long-form prose ── */
+.legal-prose {
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.8;
+}
+
+.legal-prose > * + * {
+  margin-top: 1.15rem;
+}
+
+.legal-prose h2 {
+  margin-top: 2.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground);
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.4;
+  scroll-margin-top: 6rem;
+}
+
+.legal-prose h3 {
+  margin-top: 1.75rem;
+  color: var(--foreground);
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+.legal-prose ul,
+.legal-prose ol {
+  margin-top: 0.85rem;
+  padding-left: 1.35rem;
+}
+
+.legal-prose ul {
+  list-style: disc;
+}
+
+.legal-prose ol {
+  list-style: decimal;
+}
+
+.legal-prose li {
+  margin-top: 0.5rem;
+  padding-left: 0.25rem;
+}
+
+.legal-prose li::marker {
+  color: var(--primary);
+}
+
+.legal-prose li > ul,
+.legal-prose li > ol {
+  margin-top: 0.4rem;
+}
+
+.legal-prose strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.legal-prose a {
+  color: var(--primary);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.legal-prose a:hover {
+  color: var(--primary-dark);
+}
+
+.legal-prose hr {
+  margin-top: 2rem;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.legal-prose blockquote {
+  margin-top: 1.15rem;
+  border-left: 3px solid var(--primary);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--primary-light);
+  padding: 0.9rem 1.1rem;
+  color: var(--foreground);
+}
+

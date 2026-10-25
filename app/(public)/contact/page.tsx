@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Mail, Phone, MapPin } from "lucide-react";
 import Container from "@/components/common/Container";
 import ContactForm from "@/components/common/ContactForm";
+import { SUPPORT_EMAIL, SUPPORT_PHONE_DISPLAY, SUPPORT_PHONE_TEL } from "@/lib/constants/site";
 
 export const metadata: Metadata = {
   title: "Contact Us",
@@ -42,11 +43,15 @@ export default function ContactPage() {
                   <ul className="mt-4 space-y-4">
                     <li className="flex items-start gap-3 text-sm text-muted">
                       <Mail className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
-                      <span>hello@scrapwala.example</span>
+                      <a href={`mailto:${SUPPORT_EMAIL}`} className="break-all transition-colors hover:text-primary">
+                        {SUPPORT_EMAIL}
+                      </a>
                     </li>
                     <li className="flex items-start gap-3 text-sm text-muted">
                       <Phone className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
-                      <span>hello@scrapwala.example</span>
+                      <a href={`tel:${SUPPORT_PHONE_TEL}`} className="transition-colors hover:text-primary">
+                        {SUPPORT_PHONE_DISPLAY}
+                      </a>
                     </li>
                     <li className="flex items-start gap-3 text-sm text-muted">
                       <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />

@@ -239,7 +239,7 @@ export function buildApplicationSummaryPdf(input: ApplicationPdfInput): Promise<
         { width: contentWidth }
       );
       y += 16;
-      doc.text("© ScrapWala — scrapwala.example", PAGE_MARGIN, y, {
+      doc.text("© ScrapWala — scrapi.in", PAGE_MARGIN, y, {
         width: contentWidth,
       });
 

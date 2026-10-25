@@ -29,13 +29,13 @@ describe("homepage-ad validations", () => {
     it("accepts an active ad with link and schedule", () => {
       const parsed = createHomepageAdSchema.parse({
         ...validBase,
-        linkUrl: "https://scrapwala.example/offers",
+        linkUrl: "https://scrapi.in/offers",
         isActive: true,
         startsAt: "2026-11-01T00:00:00.000Z",
         endsAt: "2026-11-30T23:59:59.000Z",
       });
       assert.equal(parsed.isActive, true);
-      assert.equal(parsed.linkUrl, "https://scrapwala.example/offers");
+      assert.equal(parsed.linkUrl, "https://scrapi.in/offers");
       assert.equal(parsed.startsAt, "2026-11-01T00:00:00.000Z");
       assert.equal(parsed.endsAt, "2026-11-30T23:59:59.000Z");
     });
