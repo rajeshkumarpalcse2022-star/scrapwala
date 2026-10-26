@@ -12,6 +12,7 @@ import {
   LogOut,
   X,
 } from "lucide-react";
+import Logo from "@/components/common/Logo";
 
 const NAV_ITEMS = [
   { href: "/collector", label: "Dashboard", icon: LayoutDashboard },
@@ -45,12 +46,8 @@ export default function CollectorSidebar({ open, onClose }: CollectorSidebarProp
   const sidebarContent = (
     <div className="flex h-full flex-col bg-white">
       <div className="flex items-center justify-between px-6 py-5">
-        <Link
-          href="/"
-          onClick={onClose}
-          className="text-xl font-bold text-green-600 transition-colors hover:text-green-700"
-        >
-          ♻ ScrapWala
+        <Link href="/" onClick={onClose} className="flex items-center">
+          <Logo className="h-8 w-auto" />
         </Link>
         <button
           onClick={onClose}

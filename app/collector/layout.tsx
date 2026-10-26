@@ -6,6 +6,7 @@ import { Menu } from "lucide-react";
 import CollectorSidebar from "@/components/collector/CollectorSidebar";
 import CollectorHeader from "@/components/collector/CollectorHeader";
 import NotificationBell from "@/components/collector/NotificationBell";
+import Logo from "@/components/common/Logo";
 
 export default function CollectorLayout({
   children,
@@ -28,11 +29,8 @@ export default function CollectorLayout({
 
       <div className="lg:hidden">
         <div className="sticky top-0 z-40 bg-white border-b px-4 py-3 flex items-center justify-between">
-          <Link
-            href="/"
-            className="text-lg font-semibold hover:text-primary"
-          >
-            ScrapWala
+          <Link href="/" className="flex items-center">
+            <Logo className="h-7 w-auto" />
           </Link>
           <div className="flex items-center gap-1">
             <NotificationBell />

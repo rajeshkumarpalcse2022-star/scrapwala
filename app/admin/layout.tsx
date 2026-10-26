@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Menu } from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminHeader from "@/components/admin/AdminHeader";
+import Logo from "@/components/common/Logo";
 
 export default function AdminLayout({
   children,
@@ -27,11 +28,8 @@ export default function AdminLayout({
 
       <div className="lg:hidden">
         <div className="sticky top-0 z-40 bg-white border-b px-4 py-3 flex items-center justify-between">
-          <Link
-            href="/"
-            className="text-lg font-semibold hover:text-primary"
-          >
-            ScrapWala Admin
+          <Link href="/" className="flex items-center">
+            <Logo className="h-7 w-auto" />
           </Link>
           <button
             onClick={() => setSidebarOpen(true)}

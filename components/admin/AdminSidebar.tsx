@@ -25,6 +25,7 @@ import {
   LogOut,
 } from "lucide-react";
 import UnseenCountBadge from "@/components/UnseenCountBadge";
+import Logo from "@/components/common/Logo";
 import { useUnseenPickupCount } from "@/hooks/useUnseenPickupCount";
 import { useUnseenCallbackCount } from "@/hooks/useUnseenCallbackCount";
 
@@ -108,12 +109,8 @@ export default function AdminSidebar({ open, onClose }: AdminSidebarProps) {
   const sidebarContent = (
     <div className="flex h-full flex-col bg-white">
       <div className="flex items-center justify-between px-6 py-5">
-        <Link
-          href="/"
-          onClick={onClose}
-          className="text-xl font-bold text-green-600 transition-colors hover:text-green-700"
-        >
-          ♻ ScrapWala Admin
+        <Link href="/" onClick={onClose} className="flex items-center">
+          <Logo className="h-8 w-auto" />
         </Link>
         <button
           onClick={onClose}
