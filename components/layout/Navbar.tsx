@@ -168,7 +168,7 @@ export default function Navbar() {
       <Container>
         <nav className="flex h-16 items-center justify-between" aria-label="Main navigation">
           <Link href="/" className="flex items-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-            <Logo className="h-8 w-auto sm:h-9" priority />
+            <Logo className="h-11 w-auto sm:h-14" priority />
           </Link>
 
           {/* Desktop links */}
@@ -323,7 +323,7 @@ export default function Navbar() {
                 className="flex items-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 onClick={() => setMobileOpen(false)}
               >
-                <Logo className="h-8 w-auto" />
+                <Logo className="h-11 w-auto" />
               </Link>
               <button
                 type="button"
