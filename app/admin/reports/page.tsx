@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 
 export const metadata: Metadata = {
-  title: "Reports & Analytics | ScrapWala Admin",
+  title: "Reports & Analytics | Scrapi Admin",
 };
 
 const dailyPickups = [
@@ -53,7 +53,7 @@ export default function AdminReportsPage() {
     <div className="space-y-8">
       <AdminPageHeader
         title="Reports & Analytics"
-        subtitle="Insights into ScrapWala operations."
+        subtitle="Insights into Scrapi operations."
       />
 
       <section className="space-y-4">

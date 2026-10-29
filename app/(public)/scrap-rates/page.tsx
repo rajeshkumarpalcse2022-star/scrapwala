@@ -8,9 +8,9 @@ import ScrapRatesCTA from "@/components/scrap-rates/ScrapRatesCTA";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Scrap Rates | Check Scrap Prices | ScrapWala",
+  title: "Scrap Rates | Check Scrap Prices | Scrapi",
   description:
-    "Check indicative scrap rates for paper, plastic, metals, e-waste, appliances and more with ScrapWala.",
+    "Check indicative scrap rates for paper, plastic, metals, e-waste, appliances and more with Scrapi.",
 };
 
 export default function ScrapRatesPage() {

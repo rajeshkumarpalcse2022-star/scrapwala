@@ -10,7 +10,7 @@ import AboutCTA from "@/components/about/AboutCTA";
 export const metadata: Metadata = {
   title: "About Us",
   description:
-    "Learn about ScrapWala's mission to make scrap recycling easy, accessible, and rewarding for everyone.",
+    "Learn about Scrapi's mission to make scrap recycling easy, accessible, and rewarding for everyone.",
 };
 
 export default function AboutPage() {

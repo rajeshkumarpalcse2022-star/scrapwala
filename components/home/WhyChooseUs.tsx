@@ -47,7 +47,7 @@ export default function WhyChooseUs() {
     <section className="py-20">
       <Container>
         <SectionHeading
-          title="Why Choose ScrapWala"
+          title="Why Choose Scrapi"
           subtitle="We make the scrap collection experience simple, fair, and dependable."
         />
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

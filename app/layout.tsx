@@ -10,11 +10,11 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "ScrapWala | Doorstep Scrap Pickup & Recycling",
-    template: "%s | ScrapWala",
+    default: "Scrapi | Doorstep Scrap Pickup & Recycling",
+    template: "%s | Scrapi",
   },
   description:
-    "ScrapWala is a smart doorstep scrap pickup and recycling service. Schedule pickups, get the best rates for your scrap, and contribute to a greener planet.",
+    "Scrapi is a smart doorstep scrap pickup and recycling service. Schedule pickups, get the best rates for your scrap, and contribute to a greener planet.",
   keywords: [
     "scrap pickup",
     "recycling",
@@ -22,20 +22,20 @@ export const metadata: Metadata = {
     "scrap rates",
     "sell scrap",
     "eco-friendly",
-    "ScrapWala",
+    "Scrapi",
   ],
   metadataBase: new URL("https://scrapi.in"),
   openGraph: {
     type: "website",
     locale: "en_IN",
-    siteName: "ScrapWala",
-    title: "ScrapWala | Doorstep Scrap Pickup & Recycling",
+    siteName: "Scrapi",
+    title: "Scrapi | Doorstep Scrap Pickup & Recycling",
     description:
       "Schedule convenient doorstep scrap pickups and get the best value for your recyclables.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "ScrapWala | Doorstep Scrap Pickup & Recycling",
+    title: "Scrapi | Doorstep Scrap Pickup & Recycling",
     description:
       "Schedule convenient doorstep scrap pickups and get the best value for your recyclables.",
   },

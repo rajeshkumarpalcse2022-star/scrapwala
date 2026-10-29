@@ -169,7 +169,7 @@ describe("blog validations", () => {
       excerpt: "A practical guide to e-waste recycling.",
       content: [{ type: "paragraph", text: "Body" }],
       category: "abc123",
-      authorName: "ScrapWala Team",
+      authorName: "Scrapi Team",
     });
     assert.equal(parsed.title, "How to recycle e-waste");
     assert.equal(parsed.status, undefined);

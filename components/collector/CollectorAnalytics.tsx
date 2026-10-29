@@ -32,7 +32,7 @@ const PERIODS: Array<{ id: Period; label: string }> = [
 ];
 
 /**
- * Solid variants of the existing ScrapWala status hue families
+ * Solid variants of the existing Scrapi status hue families
  * (see STATUS_COLORS in lib/constants/collectorDemoData.ts).
  */
 const STATUS_SOLID: Record<string, string> = {

@@ -131,7 +131,7 @@ export default function ApplicationHistoryPage() {
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `ScrapWala-Application-${application.applicationId}.pdf`;
+      anchor.download = `Scrapi-Application-${application.applicationId}.pdf`;
       anchor.click();
       URL.revokeObjectURL(url);
     } catch {

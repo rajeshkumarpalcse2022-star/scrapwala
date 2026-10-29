@@ -54,9 +54,9 @@ export async function generateMetadata({
   const q = first(raw.q)?.trim();
 
   return {
-    title: q ? `Search: ${q} | ScrapWala Blog` : "Blog | ScrapWala",
+    title: q ? `Search: ${q} | Scrapi Blog` : "Blog | Scrapi",
     description:
-      "Practical guides on scrap recycling, sustainable living and getting the best value for your recyclables — from the ScrapWala team.",
+      "Practical guides on scrap recycling, sustainable living and getting the best value for your recyclables — from the Scrapi team.",
     alternates: {
       canonical: `${SITE_URL}/blogs`,
     },
@@ -156,7 +156,7 @@ export default async function BlogListingPage({
             <div className="max-w-xl">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
                 <Leaf className="h-3.5 w-3.5" aria-hidden />
-                ScrapWala Journal
+                Scrapi Journal
               </span>
               <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl lg:text-[42px]">
                 Ideas for a Greener Tomorrow

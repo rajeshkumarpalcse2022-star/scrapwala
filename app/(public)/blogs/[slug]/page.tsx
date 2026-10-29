@@ -43,7 +43,7 @@ export async function generateMetadata({
   const imageAlt = post.socialImage?.alt ?? post.coverImage?.alt ?? post.title;
 
   return {
-    title: post.seoMetaTitle || `${post.title} | ScrapWala Blog`,
+    title: post.seoMetaTitle || `${post.title} | Scrapi Blog`,
     description: post.seoMetaDescription || post.excerpt,
     alternates: { canonical: url },
     robots: { index: true, follow: true },
@@ -86,7 +86,7 @@ export default async function BlogArticlePage({ params }: { params: Params }) {
     datePublished: post.publishedAt,
     dateModified: post.updatedAt,
     author: { "@type": "Person", name: post.authorName },
-    publisher: { "@type": "Organization", name: "ScrapWala" },
+    publisher: { "@type": "Organization", name: "Scrapi" },
     mainEntityOfPage: absoluteUrl,
     image: cover ? [cover] : undefined,
     articleSection: post.category?.name,
@@ -188,7 +188,7 @@ export default async function BlogArticlePage({ params }: { params: Params }) {
           <Container>
             <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
               More from{" "}
-              {post.category ? post.category.name : "the ScrapWala blog"}
+              {post.category ? post.category.name : "the Scrapi blog"}
             </h2>
             <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {related.map((item) => (

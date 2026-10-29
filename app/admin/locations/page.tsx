@@ -415,7 +415,7 @@ export default function AdminLocationsPage() {
     <div className="space-y-6">
       <AdminPageHeader
         title="Serviceable Locations"
-        subtitle="Manage areas where ScrapWala operates."
+        subtitle="Manage areas where Scrapi operates."
         action={
           <button
             type="button"

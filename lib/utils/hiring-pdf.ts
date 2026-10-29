@@ -1,7 +1,7 @@
 import PDFDocument from "pdfkit";
 
 /**
- * Server-side generator for the "ScrapWala — Job Application Summary" PDF.
+ * Server-side generator for the "Scrapi — Job Application Summary" PDF.
  *
  * Built with pdfkit's standard Helvetica fonts (no external font files), so
  * it works in the Next.js server runtime. Output is collected into a Buffer
@@ -54,7 +54,7 @@ function drawHeader(doc: PDFKit.PDFDocument, input: ApplicationPdfInput): number
   doc.rect(0, 0, doc.page.width, 86).fill(PRIMARY);
 
   doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(20);
-  doc.text("ScrapWala", PAGE_MARGIN, 28, { lineBreak: false });
+  doc.text("Scrapi", PAGE_MARGIN, 28, { lineBreak: false });
 
   doc.font("Helvetica").fontSize(10);
   doc.text("Doorstep Scrap Pickup & Recycling", PAGE_MARGIN, 54, {
@@ -106,8 +106,8 @@ export function buildApplicationSummaryPdf(input: ApplicationPdfInput): Promise<
         size: "A4",
         margin: PAGE_MARGIN,
         info: {
-          Title: `ScrapWala — Job Application Summary (${input.applicationId})`,
-          Author: "ScrapWala",
+          Title: `Scrapi — Job Application Summary (${input.applicationId})`,
+          Author: "Scrapi",
         },
       });
 
@@ -239,7 +239,7 @@ export function buildApplicationSummaryPdf(input: ApplicationPdfInput): Promise<
         { width: contentWidth }
       );
       y += 16;
-      doc.text("© ScrapWala — scrapi.in", PAGE_MARGIN, y, {
+      doc.text("© Scrapi — scrapi.in", PAGE_MARGIN, y, {
         width: contentWidth,
       });
 

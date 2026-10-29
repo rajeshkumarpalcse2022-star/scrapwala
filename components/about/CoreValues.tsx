@@ -34,7 +34,7 @@ export default function CoreValues() {
             Our Core Values
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-base text-muted sm:text-lg">
-            The principles that guide everything we do at ScrapWala.
+            The principles that guide everything we do at Scrapi.
           </p>
         </FadeIn>
 

@@ -430,7 +430,7 @@ export default function LoginPage() {
       </form>
 
       <p className="mt-6 text-center text-sm text-muted">
-        New to ScrapWala?{" "}
+        New to Scrapi?{" "}
         <Link href="/signup" className="font-medium text-primary hover:underline">
           Create an account
         </Link>

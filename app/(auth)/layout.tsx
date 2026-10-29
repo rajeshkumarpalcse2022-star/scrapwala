@@ -24,7 +24,7 @@ export default function AuthLayout({
       </main>
 
       <footer className="border-t border-border py-6 text-center text-sm text-muted">
-        &copy; {new Date().getFullYear()} ScrapWala. All rights reserved.
+        &copy; {new Date().getFullYear()} Scrapi. All rights reserved.
       </footer>
     </div>
   );

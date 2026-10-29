@@ -11,7 +11,7 @@ export default function WeighingAccuracy() {
             <div className="relative h-[240px] w-[240px] sm:h-[320px] sm:w-[320px] lg:h-[380px] lg:w-[380px]">
               <Image
                 src="/images/scrapuncle-weighing.png"
-                alt="ScrapWala smart digital weighing scale for accurate scrap weighing"
+                alt="Scrapi smart digital weighing scale for accurate scrap weighing"
                 fill
                 priority
                 sizes="(max-width: 640px) 240px, (max-width: 1024px) 320px, 380px"
@@ -32,7 +32,7 @@ export default function WeighingAccuracy() {
 
             {/* Subheading */}
             <p className="mx-auto mt-4 max-w-[680px] text-base font-normal leading-relaxed text-muted sm:mt-5 sm:text-lg lg:mx-0">
-              Powered by ScrapWala&apos;s Smart Digital Weighing Scales
+              Powered by Scrapi&apos;s Smart Digital Weighing Scales
             </p>
           </div>
         </div>

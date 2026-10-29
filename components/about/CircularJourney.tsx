@@ -9,7 +9,7 @@ export default function CircularJourney() {
         <FadeIn className="text-center">
           <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             From Pickup to Recycling:{" "}
-            <span className="text-primary">The ScrapWala Circular Journey</span>
+            <span className="text-primary">The Scrapi Circular Journey</span>
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-base text-muted sm:text-lg">
             Every pickup is a small step toward a more circular future.
@@ -35,7 +35,7 @@ export default function CircularJourney() {
 
             <Image
               src="/images/scrapwala-journey.png"
-              alt="ScrapWala circular journey — from doorstep pickup to collection point, partner recyclers, and recycled products resold"
+              alt="Scrapi circular journey — from doorstep pickup to collection point, partner recyclers, and recycled products resold"
               width={2172}
               height={724}
               priority

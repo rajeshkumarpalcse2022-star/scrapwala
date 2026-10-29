@@ -859,7 +859,7 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
               value={authorName}
               onChange={(e) => setAuthorName(e.target.value)}
               maxLength={120}
-              placeholder="e.g. ScrapWala Team"
+              placeholder="e.g. Scrapi Team"
               className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
             />
           </div>

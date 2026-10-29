@@ -15,14 +15,14 @@ export default function AboutHero() {
           {/* Text */}
           <div className="flex-1 text-center lg:text-left">
             <span className="inline-block rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
-              About ScrapWala
+              About Scrapi
             </span>
             <h1 className="mt-6 text-3xl font-bold leading-[1.1] tracking-tight text-foreground min-[400px]:text-4xl sm:text-5xl lg:text-6xl">
               Making Scrap Collection{" "}
               <span className="text-primary">Simple &amp; Sustainable</span>
             </h1>
             <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted lg:mx-0">
-              ScrapWala makes it easier for households and businesses to schedule
+              Scrapi makes it easier for households and businesses to schedule
               scrap pickups, get transparent value for recyclable materials, and
               contribute to a cleaner tomorrow.
             </p>

@@ -1,4 +1,4 @@
-# ScrapWala
+# Scrapi
 
 Smart doorstep scrap pickup and recycling service.
 

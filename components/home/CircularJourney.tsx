@@ -9,7 +9,7 @@ export default function CircularJourney() {
         <div className="text-center">
           <h2 className="px-2 text-2xl font-bold tracking-tight text-foreground sm:text-4xl">
             From Pickup to Recycling:{" "}
-            <span className="text-primary">The ScrapWala Circular Journey</span>
+            <span className="text-primary">The Scrapi Circular Journey</span>
           </h2>
         </div>
       </Container>
@@ -54,7 +54,7 @@ export default function CircularJourney() {
 
             <Image
               src="/images/scrapwala-journey.png"
-              alt="ScrapWala circular journey — from doorstep pickup to collection point, partner recyclers, and recycled products resold"
+              alt="Scrapi circular journey — from doorstep pickup to collection point, partner recyclers, and recycled products resold"
               width={2172}
               height={724}
               priority

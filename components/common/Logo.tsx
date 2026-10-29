@@ -6,14 +6,14 @@ interface LogoProps {
 }
 
 /**
- * Scrapi.in brand lockup (recycle mark + wordmark) — exported from the
+ * Scrapi brand lockup (recycle mark + wordmark) — exported from the
  * design asset, tagline trimmed for small display sizes.
  */
 export default function Logo({ className = "h-9 w-auto", priority = false }: LogoProps) {
   return (
     <Image
       src="/images/scrapi-logo.png"
-      alt="Scrapi.in"
+      alt="Scrapi"
       width={900}
       height={283}
       priority={priority}

@@ -24,11 +24,11 @@ export async function sendOtpEmail({ to, otp, purpose }: SendOtpEmailParams): Pr
 
   const isSignup = purpose === "signup"
   const subject = isSignup
-    ? "ScrapWala - Verify Your Email"
-    : "ScrapWala - Verify Your Identity"
+    ? "Scrapi - Verify Your Email"
+    : "Scrapi - Verify Your Identity"
 
   const introText = isSignup
-    ? "Please use the OTP below to verify your email and complete your ScrapWala signup."
+    ? "Please use the OTP below to verify your email and complete your Scrapi signup."
     : "Please use the OTP below to verify your identity for first-time login."
 
   const html = `
@@ -41,7 +41,7 @@ export async function sendOtpEmail({ to, otp, purpose }: SendOtpEmailParams): Pr
     <body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,sans-serif;">
       <div style="max-width:600px;margin:0 auto;background-color:#ffffff;padding:40px 30px;border-radius:8px;margin-top:20px;margin-bottom:20px;">
         <div style="text-align:center;margin-bottom:30px;">
-          <h1 style="color:#16a34a;margin:0;font-size:28px;">♻️ ScrapWala</h1>
+          <h1 style="color:#16a34a;margin:0;font-size:28px;">♻️ Scrapi</h1>
         </div>
         <h2 style="color:#1f2937;font-size:22px;text-align:center;margin-bottom:10px;">
           ${isSignup ? "Email Verification" : "Identity Verification"}
@@ -62,7 +62,7 @@ export async function sendOtpEmail({ to, otp, purpose }: SendOtpEmailParams): Pr
         </p>
         <hr style="border:none;border-top:1px solid #e5e7eb;margin:30px 0;">
         <p style="color:#9ca3af;font-size:12px;text-align:center;margin:0;">
-          &copy; ${new Date().getFullYear()} ScrapWala. All rights reserved.
+          &copy; ${new Date().getFullYear()} Scrapi. All rights reserved.
         </p>
       </div>
     </body>
@@ -71,7 +71,7 @@ export async function sendOtpEmail({ to, otp, purpose }: SendOtpEmailParams): Pr
 
   try {
     await transporter.sendMail({
-      from: `"ScrapWala" <${process.env.SMTP_USER}>`,
+      from: `"Scrapi" <${process.env.SMTP_USER}>`,
       to,
       subject,
       html,

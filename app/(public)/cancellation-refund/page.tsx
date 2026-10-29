@@ -5,7 +5,7 @@ import { SITE_URL, SUPPORT_EMAIL, SUPPORT_PHONE_DISPLAY } from "@/lib/constants/
 export const metadata: Metadata = {
   title: "Cancellation & Refund Policy",
   description:
-    "Learn how ScrapWala handles pickup cancellations, failed or duplicate payments, refund eligibility and refund processing timelines.",
+    "Learn how Scrapi handles pickup cancellations, failed or duplicate payments, refund eligibility and refund processing timelines.",
   alternates: { canonical: `${SITE_URL}/cancellation-refund` },
 };
 
@@ -14,12 +14,12 @@ export default function CancellationRefundPage() {
     <LegalPage
       id="cancellation-refund"
       title="Cancellation & Refund Policy"
-      summary="This policy explains how pickup cancellations, payment failures, and refund requests are handled on ScrapWala."
+      summary="This policy explains how pickup cancellations, payment failures, and refund requests are handled on Scrapi."
       effectiveDate="25 October 2026"
     >
       <h2>1. Cancellation Before Pickup</h2>
       <p>
-        Customers who wish to cancel a pickup request should contact ScrapWala as early as possible
+        Customers who wish to cancel a pickup request should contact Scrapi as early as possible
         using the contact details provided on our website.
       </p>
       <p>
@@ -27,9 +27,9 @@ export default function CancellationRefundPage() {
         applicable terms disclosed at the time of booking.
       </p>
 
-      <h2>2. Cancellation by ScrapWala</h2>
+      <h2>2. Cancellation by Scrapi</h2>
       <p>
-        ScrapWala may cancel or reschedule a pickup if the location is not serviceable, the
+        Scrapi may cancel or reschedule a pickup if the location is not serviceable, the
         customer cannot be contacted, the materials are materially different from the booking
         details, or operational circumstances prevent collection.
       </p>
@@ -41,7 +41,7 @@ export default function CancellationRefundPage() {
       <h2>3. Failed or Duplicate Payments</h2>
       <p>
         If an online payment fails but the amount is debited from the customer&apos;s account, the
-        customer should contact ScrapWala with the transaction reference and relevant details.
+        customer should contact Scrapi with the transaction reference and relevant details.
       </p>
       <p>
         Duplicate or incorrectly processed payments will be investigated and, where verified,
@@ -77,7 +77,7 @@ export default function CancellationRefundPage() {
       </p>
 
       <h2>6. How to Request a Refund</h2>
-      <p>Please contact ScrapWala and provide:</p>
+      <p>Please contact Scrapi and provide:</p>
       <ul>
         <li>Your name and registered contact number.</li>
         <li>Pickup request ID, if available.</li>
@@ -90,7 +90,7 @@ export default function CancellationRefundPage() {
       </blockquote>
 
       <h2>7. Contact Us</h2>
-      <p>For cancellation or refund assistance, please contact ScrapWala:</p>
+      <p>For cancellation or refund assistance, please contact Scrapi:</p>
       <ul>
         <li>
           <strong>Website:</strong>{" "}

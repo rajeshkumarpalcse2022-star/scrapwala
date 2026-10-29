@@ -5,7 +5,7 @@ import { SITE_URL, SUPPORT_EMAIL, SUPPORT_PHONE_DISPLAY } from "@/lib/constants/
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "Read how ScrapWala collects, uses, stores and protects your personal information when you use our website and doorstep scrap pickup services.",
+    "Read how Scrapi collects, uses, stores and protects your personal information when you use our website and doorstep scrap pickup services.",
   alternates: { canonical: `${SITE_URL}/privacy-policy` },
 };
 
@@ -14,11 +14,11 @@ export default function PrivacyPolicyPage() {
     <LegalPage
       id="privacy-policy"
       title="Privacy Policy"
-      summary="ScrapWala (“we,” “our,” or “us”) respects your privacy and is committed to protecting the personal information you share with us through our website and services."
+      summary="Scrapi (“we,” “our,” or “us”) respects your privacy and is committed to protecting the personal information you share with us through our website and services."
       effectiveDate="25 October 2026"
     >
       <h2>1. Information We Collect</h2>
-      <p>When you use ScrapWala, we may collect the following information:</p>
+      <p>When you use Scrapi, we may collect the following information:</p>
       <ul>
         <li>
           <strong>Personal Information:</strong> Full name, mobile number, WhatsApp number, and
@@ -73,7 +73,7 @@ export default function PrivacyPolicyPage() {
         policy.
       </p>
       <p>
-        ScrapWala does not intend to store complete card numbers, CVV numbers, UPI PINs, or banking
+        Scrapi does not intend to store complete card numbers, CVV numbers, UPI PINs, or banking
         passwords on its own servers.
       </p>
       <p>
@@ -113,7 +113,7 @@ export default function PrivacyPolicyPage() {
 
       <h2>9. Children&apos;s Privacy</h2>
       <p>
-        ScrapWala&apos;s services are intended for individuals legally able to use the service. We
+        Scrapi&apos;s services are intended for individuals legally able to use the service. We
         do not knowingly collect personal information from children in violation of applicable law.
       </p>
 
@@ -124,7 +124,7 @@ export default function PrivacyPolicyPage() {
       </p>
 
       <h2>11. Contact Us</h2>
-      <p>For privacy-related questions or requests, please contact ScrapWala:</p>
+      <p>For privacy-related questions or requests, please contact Scrapi:</p>
       <ul>
         <li>
           <strong>Website:</strong>{" "}

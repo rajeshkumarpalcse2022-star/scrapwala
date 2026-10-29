@@ -153,7 +153,7 @@ export default function Footer() {
               ))}
             </ul>
             <p className="mt-5 text-xs leading-relaxed text-muted/80">
-              By using ScrapWala you agree to our published policies.
+              By using Scrapi you agree to our published policies.
             </p>
           </nav>
         </div>
@@ -161,7 +161,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="flex flex-col items-center gap-3 border-t border-border py-6 text-center text-sm text-muted sm:flex-row sm:justify-between sm:text-left">
           <p>
-            &copy; {year} ScrapWala. All rights reserved.{" "}
+            &copy; {year} Scrapi. All rights reserved.{" "}
             <span className="hidden sm:inline">
               &middot; {SITE_URL.replace(/^https?:\/\//, "")}
             </span>

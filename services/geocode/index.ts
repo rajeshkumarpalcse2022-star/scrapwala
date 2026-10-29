@@ -23,7 +23,7 @@ export interface ReverseGeocodeResult {
 
 const NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse";
 const USER_AGENT =
-  "ScrapWala/1.0 (+https://github.com/rajeshkumarpalcse2022-star/scrapwala)";
+  "Scrapi/1.0 (+https://github.com/rajeshkumarpalcse2022-star/scrapwala)";
 
 /** Nominatim policy: never more than one request per second. */
 const MIN_REQUEST_INTERVAL_MS = 1000;

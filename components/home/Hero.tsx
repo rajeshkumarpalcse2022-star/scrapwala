@@ -54,7 +54,7 @@ export default function Hero() {
             <div className="relative z-10 h-[300px] w-full max-w-[420px] sm:h-[460px] sm:max-w-[600px] lg:h-[560px] lg:max-w-[650px]">
               <Image
                 src="/images/scrapwala-hero.png"
-                alt="ScrapWala recycling worker collecting recyclable materials for doorstep scrap pickup"
+                alt="Scrapi recycling worker collecting recyclable materials for doorstep scrap pickup"
                 fill
                 priority
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 600px, 650px"

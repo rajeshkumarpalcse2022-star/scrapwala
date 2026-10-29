@@ -1097,7 +1097,7 @@ export async function buildApplicationPdf(
 
   return {
     buffer,
-    fileName: `ScrapWala-Application-${app.applicationId}.pdf`,
+    fileName: `Scrapi-Application-${app.applicationId}.pdf`,
   };
 }
 

@@ -24,7 +24,7 @@ export default function MissionSection() {
           <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-white/70">
             We believe recycling should not be complicated. By combining
             technology, convenient pickup services and transparent processes,
-            ScrapWala aims to make responsible recycling a simple part of everyday life.
+            Scrapi aims to make responsible recycling a simple part of everyday life.
           </p>
         </FadeIn>
       </Container>

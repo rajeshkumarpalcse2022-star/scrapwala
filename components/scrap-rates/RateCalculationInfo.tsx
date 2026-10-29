@@ -31,7 +31,7 @@ export default function RateCalculationInfo() {
       <Container>
         <FadeIn className="text-center">
           <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            How ScrapWala Rates Work
+            How Scrapi Rates Work
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-sm text-muted">
             The final amount can depend on material type, quality, quantity and

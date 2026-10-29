@@ -10,7 +10,7 @@ import ContactFloat from "@/components/common/ContactFloat";
 export const metadata: Metadata = {
   title: "Doorstep Scrap Pickup & Recycling",
   description:
-    "Schedule a convenient doorstep scrap pickup and turn your recyclable items into value with ScrapWala.",
+    "Schedule a convenient doorstep scrap pickup and turn your recyclable items into value with Scrapi.",
 };
 
 export default function HomePage() {

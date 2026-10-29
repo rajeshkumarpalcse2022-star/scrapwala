@@ -7,7 +7,7 @@ import { SUPPORT_EMAIL, SUPPORT_PHONE_DISPLAY, SUPPORT_PHONE_TEL } from "@/lib/c
 export const metadata: Metadata = {
   title: "Contact Us",
   description:
-    "Get in touch with ScrapWala for any questions about scrap pickup, rates, or recycling.",
+    "Get in touch with Scrapi for any questions about scrap pickup, rates, or recycling.",
 };
 
 export default function ContactPage() {

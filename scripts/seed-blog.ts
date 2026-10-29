@@ -72,19 +72,19 @@ const CATEGORIES = [
 
 const ARTICLES: ArticleDef[] = [
   {
-    title: "Turn Your Weekend Clean-Up Into Instant Cash with ScrapWala",
+    title: "Turn Your Weekend Clean-Up Into Instant Cash with Scrapi",
     slug: "weekend-cleanup-instant-cash-scrapwala",
     subtitle: "Three taps, one pickup, and your old junk becomes money in your account.",
     excerpt:
-      "Old newspapers, a broken mixer, that balcony full of bottles — see how a ScrapWala pickup turns your weekend clean-up into instant cash, with zero haggling.",
+      "Old newspapers, a broken mixer, that balcony full of bottles — see how a Scrapi pickup turns your weekend clean-up into instant cash, with zero haggling.",
     categorySlug: "recycling-tips",
     coverSeed: "scrapwala-pickup-bags",
     coverAlt: "Sorted scrap bags ready for pickup on a sunny balcony",
     featured: true,
     publishedAt: "2026-10-04T09:00:00.000Z",
-    seoMetaTitle: "Weekend Scrap Clean-Up → Instant Cash | ScrapWala",
+    seoMetaTitle: "Weekend Scrap Clean-Up → Instant Cash | Scrapi",
     seoMetaDescription:
-      "Book a free ScrapWala pickup, sort your household scrap in minutes and get paid instantly. A simple weekend routine that clears your home and your conscience.",
+      "Book a free Scrapi pickup, sort your household scrap in minutes and get paid instantly. A simple weekend routine that clears your home and your conscience.",
     blocks: [
       {
         type: "paragraph",
@@ -107,7 +107,7 @@ const ARTICLES: ArticleDef[] = [
       { type: "heading", level: 2, text: "Step 2 — Book a free pickup" },
       {
         type: "paragraph",
-        text: "Open ScrapWala, pick a slot that suits you, and confirm. Our pickup partner reaches your door at the chosen time — no calls, no *\"bhaiya, kal aa jao\"* negotiation.",
+        text: "Open Scrapi, pick a slot that suits you, and confirm. Our pickup partner reaches your door at the chosen time — no calls, no *\"bhaiya, kal aa jao\"* negotiation.",
       },
       { type: "heading", level: 2, text: "Step 3 — Weigh, scan, get paid" },
       {
@@ -201,7 +201,7 @@ const ARTICLES: ArticleDef[] = [
     coverSeed: "scrapwala-electronics",
     coverAlt: "Assorted household items laid out for sorting and recycling",
     publishedAt: "2026-10-12T09:00:00.000Z",
-    seoMetaTitle: "5 Surprisingly Recyclable Household Items | ScrapWala",
+    seoMetaTitle: "5 Surprisingly Recyclable Household Items | Scrapi",
     seoMetaDescription:
       "Old spectacles, toothpaste tubes, winter woollens, eyeglass frames and more — five commonly binned items that can be recycled instead.",
     blocks: [
@@ -222,7 +222,7 @@ const ARTICLES: ArticleDef[] = [
       { type: "heading", level: 2, text: "The one habit that helps" },
       {
         type: "paragraph",
-        text: "Keep a **\"not the dustbin\" box** in a corner of your storeroom. When it fills — usually once a month — you have a bundle ready for donation, e-waste or your next ScrapWala pickup.",
+        text: "Keep a **\"not the dustbin\" box** in a corner of your storeroom. When it fills — usually once a month — you have a bundle ready for donation, e-waste or your next Scrapi pickup.",
       },
       {
         type: "blockquote",
@@ -230,7 +230,7 @@ const ARTICLES: ArticleDef[] = [
       },
       {
         type: "paragraph",
-        text: "And the big four — paper, metal, plastic, glass — still go straight to your ScrapWala bags, weighed and paid at your door.",
+        text: "And the big four — paper, metal, plastic, glass — still go straight to your Scrapi bags, weighed and paid at your door.",
       },
     ],
     inlineImages: [
@@ -252,7 +252,7 @@ const ARTICLES: ArticleDef[] = [
     coverSeed: "scrapwala-balcony-storage",
     coverAlt: "Covered storage corner on a balcony with rain in the background",
     publishedAt: "2026-10-16T09:00:00.000Z",
-    seoMetaTitle: "Monsoon Scrap Storage Tips for Homes | ScrapWala",
+    seoMetaTitle: "Monsoon Scrap Storage Tips for Homes | Scrapi",
     seoMetaDescription:
       "Protect your recyclable scrap during the rains: keep paper dry, prevent rust on metal, and store plastics safely with simple home storage habits.",
     blocks: [
@@ -335,7 +335,7 @@ const ARTICLES: ArticleDef[] = [
       },
       {
         type: "paragraph",
-        text: "Add cans to your ScrapWala bag, book a pickup, and watch the smallest item in your bin produce the biggest energy saving per kilo.",
+        text: "Add cans to your Scrapi bag, book a pickup, and watch the smallest item in your bin produce the biggest energy saving per kilo.",
       },
     ],
   },
@@ -423,7 +423,7 @@ async function main() {
       excerpt: article.excerpt,
       content: blocks as never,
       category: categoryIds[article.categorySlug],
-      authorName: "ScrapWala Team",
+      authorName: "Scrapi Team",
       coverImage: {
         url: cover.imageUrl,
         publicId: cover.cloudinaryPublicId,

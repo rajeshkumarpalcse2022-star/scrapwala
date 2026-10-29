@@ -15,12 +15,12 @@ export default function WhoWeAre() {
                 Who We Are
               </h2>
               <p className="mt-6 text-base leading-relaxed text-muted sm:text-lg">
-                ScrapWala is a modern doorstep scrap collection platform built to make
+                Scrapi is a modern doorstep scrap collection platform built to make
                 recycling convenient, transparent, and accessible.
               </p>
               <p className="mt-4 text-base leading-relaxed text-muted sm:text-lg">
                 From newspapers and cardboard to plastics, metals, e-waste and old
-                appliances, ScrapWala helps people give their recyclable materials
+                appliances, Scrapi helps people give their recyclable materials
                 a more responsible next step.
               </p>
             </div>

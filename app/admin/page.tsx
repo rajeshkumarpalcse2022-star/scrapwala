@@ -189,7 +189,7 @@ export default function AdminDashboardPage() {
     <div className="max-w-7xl mx-auto">
       <AdminPageHeader
         title="Dashboard"
-        subtitle="Here's what's happening across ScrapWala today."
+        subtitle="Here's what's happening across Scrapi today."
       />
 
       <div className="mt-8 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">

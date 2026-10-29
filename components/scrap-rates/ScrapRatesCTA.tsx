@@ -15,7 +15,7 @@ export default function ScrapRatesCTA() {
             Ready to Turn Your Scrap Into Value?
           </h2>
           <p className="mt-4 text-base text-white/80 sm:text-lg">
-            Schedule a pickup and let ScrapWala handle the collection.
+            Schedule a pickup and let Scrapi handle the collection.
           </p>
           <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link

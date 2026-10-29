@@ -18,7 +18,7 @@ import Container from "@/components/common/Container";
 export const metadata: Metadata = {
   title: "How It Works",
   description:
-    "Discover how ScrapWala makes scrap pickup simple — schedule, collect, weigh, and get paid in 4 easy steps.",
+    "Discover how Scrapi makes scrap pickup simple — schedule, collect, weigh, and get paid in 4 easy steps.",
 };
 
 const steps = [
@@ -94,7 +94,7 @@ export default function HowItWorksPage() {
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-muted">
             From scheduling a pickup to receiving payment, here is the complete
-            step-by-step process of how ScrapWala works.
+            step-by-step process of how Scrapi works.
           </p>
         </Container>
       </section>

@@ -4,7 +4,7 @@ import { ArrowLeft, Leaf } from "lucide-react";
 import Container from "@/components/common/Container";
 
 export const metadata: Metadata = {
-  title: "Article not found | ScrapWala Blog",
+  title: "Article not found | Scrapi Blog",
   robots: { index: false, follow: true },
 };
 

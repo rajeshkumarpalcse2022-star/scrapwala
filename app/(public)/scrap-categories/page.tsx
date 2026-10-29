@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Scrap Categories",
   description:
-    "Explore the types of scrap materials accepted by ScrapWala — paper, plastic, metals, e-waste, appliances, and more.",
+    "Explore the types of scrap materials accepted by Scrapi — paper, plastic, metals, e-waste, appliances, and more.",
 };
 
 const ICONS: { test: RegExp; icon: React.ElementType }[] = [

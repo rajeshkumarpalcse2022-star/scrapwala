@@ -5,7 +5,7 @@ export async function GET() {
   try {
     await connectDB();
 
-    return successResponse("ScrapWala API is healthy", {
+    return successResponse("Scrapi API is healthy", {
       database: "connected",
       timestamp: new Date().toISOString(),
     });

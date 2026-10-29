@@ -5,7 +5,7 @@ import { SITE_URL, SUPPORT_EMAIL, SUPPORT_PHONE_DISPLAY } from "@/lib/constants/
 export const metadata: Metadata = {
   title: "Terms & Conditions",
   description:
-    "Read the terms and conditions that apply when you use the ScrapWala website and book a doorstep scrap pickup.",
+    "Read the terms and conditions that apply when you use the Scrapi website and book a doorstep scrap pickup.",
   alternates: { canonical: `${SITE_URL}/terms` },
 };
 
@@ -14,12 +14,12 @@ export default function TermsPage() {
     <LegalPage
       id="terms"
       title="Terms & Conditions"
-      summary="Welcome to ScrapWala. By accessing our website or using our scrap pickup services, you agree to these Terms & Conditions. Please read them carefully before placing a pickup request."
+      summary="Welcome to Scrapi. By accessing our website or using our scrap pickup services, you agree to these Terms & Conditions. Please read them carefully before placing a pickup request."
       effectiveDate="25 October 2026"
     >
       <h2>1. About Our Services</h2>
       <p>
-        ScrapWala provides an online platform through which customers can submit requests for scrap
+        Scrapi provides an online platform through which customers can submit requests for scrap
         collection. Depending on service availability, customers may select scrap categories,
         provide estimated quantities, submit pickup details, and request a collection.
       </p>
@@ -34,7 +34,7 @@ export default function TermsPage() {
         the scrap materials.
       </p>
       <p>
-        After a pickup request is submitted, the ScrapWala team may review the request and arrange
+        After a pickup request is submitted, the Scrapi team may review the request and arrange
         an appropriate collector, subject to service availability.
       </p>
       <p>
@@ -108,13 +108,13 @@ export default function TermsPage() {
 
       <h2>8. Service Availability</h2>
       <p>
-        ScrapWala may modify, suspend, or discontinue any part of its services when reasonably
+        Scrapi may modify, suspend, or discontinue any part of its services when reasonably
         necessary for maintenance, operational requirements, security, or legal compliance.
       </p>
 
       <h2>9. Limitation of Liability</h2>
       <p>
-        To the extent permitted by applicable law, ScrapWala will not be responsible for indirect
+        To the extent permitted by applicable law, Scrapi will not be responsible for indirect
         losses arising from temporary service interruptions, inaccurate information supplied by
         customers, or circumstances outside its reasonable control.
       </p>
@@ -125,7 +125,7 @@ export default function TermsPage() {
 
       <h2>10. Intellectual Property</h2>
       <p>
-        Website content, branding, designs, graphics, and software elements belonging to ScrapWala
+        Website content, branding, designs, graphics, and software elements belonging to Scrapi
         may not be copied, reproduced, or commercially used without appropriate authorization,
         except where permitted by law.
       </p>
@@ -143,7 +143,7 @@ export default function TermsPage() {
       </p>
 
       <h2>13. Contact Us</h2>
-      <p>For questions about these Terms, please contact ScrapWala:</p>
+      <p>For questions about these Terms, please contact Scrapi:</p>
       <ul>
         <li>
           <strong>Website:</strong>{" "}
