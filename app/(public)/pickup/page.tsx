@@ -422,7 +422,7 @@ export default function PickupPage() {
           <>
             <PickupProgress steps={PICKUP_STEPS} currentStep={currentStep} />
 
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
+            <div className="rounded-3xl border border-primary/15 bg-gradient-to-br from-primary-light/50 via-white to-primary-light/70 p-6 shadow-[0_6px_24px_rgba(27,122,61,0.10)] sm:p-8">
               {currentStep === 1 && (
                 <VehicleSelection
                   selected={vehicle}
