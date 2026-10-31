@@ -8,8 +8,10 @@ import {
   ArrowLeft,
   CheckCircle2,
   Copy,
+  IndianRupee,
   Loader2,
   Send,
+  ShieldCheck,
   Sparkles,
 } from "lucide-react";
 import Container from "@/components/common/Container";
@@ -20,6 +22,7 @@ import DynamicHiringFields, {
 import { useAuth } from "@/hooks/useAuth";
 import {
   UPLOAD_KIND_LIMITS,
+  formatHiringPrice,
   matchAutofillValues,
   validateApplicationValues,
   type HiringFieldConfig,
@@ -33,9 +36,68 @@ interface PublicForm {
   description: string;
   instructions?: string;
   fields: RendererField[];
+  /** Application fee in rupees; 0 or missing = free. */
+  price?: number;
+}
+
+interface PaymentOrderDTO {
+  orderId: string;
+  amount: number;
+  currency: string;
+  keyId: string;
+  formTitle: string;
+  feeLabel: string;
+  prefill: {
+    name: string;
+    email?: string;
+    contact?: string;
+  };
+}
+
+/** Fields Razorpay Checkout passes to the success handler. */
+interface RazorpayCheckoutResponse {
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  razorpay_signature?: string;
+}
+
+interface RazorpayCheckout {
+  open(): void;
+}
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => RazorpayCheckout;
+  }
 }
 
 type UploadKind = "photo" | "signature" | "document";
+
+const RAZORPAY_CHECKOUT_SCRIPT = "https://checkout.razorpay.com/v1/checkout.js";
+const BRAND_COLOR = "#1b7a3d";
+
+let razorpayScriptPromise: Promise<boolean> | null = null;
+
+/** Injects Razorpay Checkout.js once; resolves false when it can't load. */
+function loadRazorpayCheckout(): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  if (window.Razorpay) return Promise.resolve(true);
+  if (razorpayScriptPromise) return razorpayScriptPromise;
+
+  razorpayScriptPromise = new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = RAZORPAY_CHECKOUT_SCRIPT;
+    script.async = true;
+    script.onload = () => resolve(Boolean(window.Razorpay));
+    script.onerror = () => {
+      // Allow a retry after a failed download.
+      razorpayScriptPromise = null;
+      resolve(false);
+    };
+    document.body.appendChild(script);
+  });
+  return razorpayScriptPromise;
+}
 
 /** Last Application ID submitted on this device — reused as a suggestion. */
 const LAST_APPLICATION_ID_KEY = "scrapwala:hiring:lastApplicationId";
@@ -349,12 +411,8 @@ export default function HiringApplyPage() {
     setUploads((prev) => ({ ...prev, [fieldKey]: null }));
   }, [uploads]);
 
-  const handleSubmit = useCallback(
-    async (event: React.FormEvent) => {
-      event.preventDefault();
-      if (!form || submitting) return;
-      setSubmitError(null);
-
+  const validateAndCollectUploads = useCallback(
+    (): { uploadIds: Record<string, string> } | null => {
       const uploadsByField: Record<string, { id: string } | undefined> = {};
       for (const [key, upload] of Object.entries(uploads)) {
         uploadsByField[key] = upload ? { id: upload.id } : undefined;
@@ -371,33 +429,57 @@ export default function HiringApplyPage() {
         document
           .querySelector(`[data-field="${firstKey}"]`)
           ?.scrollIntoView({ behavior: "smooth", block: "center" });
-        return;
+        return null;
       }
 
-      setSubmitting(true);
-      try {
-        const uploadIds: Record<string, string> = {};
-        for (const [key, upload] of Object.entries(uploads)) {
-          if (upload?.id) uploadIds[key] = upload.id;
-        }
+      const uploadIds: Record<string, string> = {};
+      for (const [key, upload] of Object.entries(uploads)) {
+        if (upload?.id) uploadIds[key] = upload.id;
+      }
+      return { uploadIds };
+    },
+    [uploads, fields, values]
+  );
 
+  /** Creates the application. When `payment` is set it is verified server-side. */
+  const submitApplication = useCallback(
+    async (
+      uploadIds: Record<string, string>,
+      payment?: {
+        razorpayOrderId: string;
+        razorpayPaymentId: string;
+        razorpaySignature: string;
+      }
+    ): Promise<boolean> => {
+      try {
         const response = await fetch("/api/hiring/applications", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slug, values, uploads: uploadIds }),
+          body: JSON.stringify({
+            slug,
+            values,
+            uploads: uploadIds,
+            ...(payment ? { payment } : {}),
+          }),
         });
         const json = await response.json().catch(() => null);
 
         if (response.status === 401) {
           router.replace(`/login?next=/careers/${slug}`);
-          return;
+          return false;
         }
         if (!response.ok || !json?.success) {
+          const base =
+            json?.message ||
+            "Failed to submit the application. Please try again.";
           setSubmitError(
-            json?.message || "Failed to submit the application. Please try again."
+            payment
+              ? `${base} Your fee payment already went through (payment ID ${payment.razorpayPaymentId}) — contact support before paying again.`
+              : base
           );
-          return;
+          return false;
         }
+
         const newApplicationId = json.data?.applicationId;
         if (typeof newApplicationId === "string" && newApplicationId) {
           setSubmittedApplicationId(newApplicationId);
@@ -411,15 +493,134 @@ export default function HiringApplyPage() {
           }
         }
         setSubmitted(true);
+        return true;
       } catch {
         setSubmitError(
-          "Something went wrong while submitting. Please try again."
+          payment
+            ? `Your fee payment went through (payment ID ${payment.razorpayPaymentId}) but the application could not be submitted. Please check your connection and press Submit again — you will not be charged twice.`
+            : "Something went wrong while submitting. Please try again."
         );
+        return false;
       } finally {
         setSubmitting(false);
       }
     },
-    [form, submitting, fields, values, uploads, slug, router]
+    [slug, values, router]
+  );
+
+  /** Opens Razorpay Checkout, then submits the application on success. */
+  const startPaidSubmit = useCallback(
+    async (uploadIds: Record<string, string>): Promise<void> => {
+      setSubmitting(true);
+      setSubmitError(null);
+      try {
+        const orderResponse = await fetch("/api/payments/hiring-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug }),
+        });
+        const orderJson = await orderResponse.json().catch(() => null);
+
+        if (orderResponse.status === 401) {
+          router.replace(`/login?next=/careers/${slug}`);
+          return;
+        }
+        if (!orderResponse.ok || !orderJson?.success) {
+          setSubmitting(false);
+          setSubmitError(
+            orderJson?.message ||
+              "Could not start the payment. Please try again."
+          );
+          return;
+        }
+
+        const order = orderJson.data?.order as PaymentOrderDTO | undefined;
+        if (!order?.orderId || !order?.keyId || !order?.amount) {
+          setSubmitting(false);
+          setSubmitError(
+            "Payment setup is incomplete. Please refresh and try again."
+          );
+          return;
+        }
+
+        const loaded = await loadRazorpayCheckout();
+        if (!loaded || !window.Razorpay) {
+          setSubmitting(false);
+          setSubmitError(
+            "Could not load the payment window. Check your connection and try again."
+          );
+          return;
+        }
+
+        const checkout = new window.Razorpay({
+          key: order.keyId,
+          order_id: order.orderId,
+          amount: order.amount,
+          currency: order.currency,
+          name: "Scrapi",
+          description: order.formTitle,
+          prefill: order.prefill ?? {},
+          theme: { color: BRAND_COLOR },
+          handler: (response: RazorpayCheckoutResponse) => {
+            void (async () => {
+              if (
+                !response.razorpay_order_id ||
+                !response.razorpay_payment_id ||
+                !response.razorpay_signature
+              ) {
+                setSubmitting(false);
+                setSubmitError(
+                  "Payment response is incomplete. If you were charged, contact support before paying again."
+                );
+                return;
+              }
+              await submitApplication(uploadIds, {
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              });
+            })();
+          },
+          modal: {
+            ondismiss: () => {
+              setSubmitting(false);
+              setSubmitError(
+                "Payment window was closed before finishing. Your form is still filled in — no amount was charged."
+              );
+            },
+          },
+        });
+        checkout.open();
+      } catch {
+        setSubmitError(
+          "Could not start the payment. Please check your connection and try again."
+        );
+        setSubmitting(false);
+      }
+      // setSubmitting(false) happens in every exit path above or when the
+      // submission finishes.
+    },
+    [slug, router, submitApplication]
+  );
+
+  const handleSubmit = useCallback(
+    async (event: React.FormEvent) => {
+      event.preventDefault();
+      if (!form || submitting) return;
+      setSubmitError(null);
+
+      const collected = validateAndCollectUploads();
+      if (!collected) return;
+
+      if ((form.price ?? 0) > 0) {
+        await startPaidSubmit(collected.uploadIds);
+        return;
+      }
+
+      setSubmitting(true);
+      await submitApplication(collected.uploadIds);
+    },
+    [form, submitting, validateAndCollectUploads, startPaidSubmit, submitApplication]
   );
 
   if (roleDenied) {
@@ -513,6 +714,32 @@ export default function HiringApplyPage() {
             </div>
           )}
 
+          {(form.price ?? 0) > 0 && !submitted && (
+            <div className="mt-5 rounded-xl border border-primary/20 bg-primary-light/40 p-4">
+              <div className="flex items-start gap-3">
+                <IndianRupee
+                  className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+                  aria-hidden="true"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    Application fee: {formatHiringPrice(form.price)}
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted">
+                    This opening charges a one-time fee per application. After
+                    filling the form you pay securely through Razorpay (UPI,
+                    cards or netbanking) — the application is submitted only
+                    after the payment succeeds.
+                  </p>
+                </div>
+                <ShieldCheck
+                  className="ml-auto h-4 w-4 shrink-0 text-primary"
+                  aria-hidden="true"
+                />
+              </div>
+            </div>
+          )}
+
           {submitted ? (
             <div className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center">
               <CheckCircle2
@@ -528,6 +755,12 @@ export default function HiringApplyPage() {
                 will review your application and get back to you on your
                 contact number or email.
               </p>
+              {(form.price ?? 0) > 0 && (
+                <p className="mt-1 text-sm font-medium text-emerald-800">
+                  Application fee of {formatHiringPrice(form.price)} paid
+                  successfully.
+                </p>
+              )}
               {submittedApplicationId && (
                 <div className="mx-auto mt-4 max-w-[360px] rounded-xl border border-emerald-300 bg-white px-4 py-3">
                   <p className="text-xs font-medium text-emerald-700">
@@ -668,11 +901,27 @@ export default function HiringApplyPage() {
               >
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (form.price ?? 0) > 0 ? (
+                  <IndianRupee className="h-4 w-4" />
                 ) : (
                   <Send className="h-4 w-4" />
                 )}
-                {submitting ? "Submitting…" : "Submit Application"}
+                {submitting
+                  ? "Processing… do not close this page"
+                  : (form.price ?? 0) > 0
+                    ? `Pay ${formatHiringPrice(form.price)} & Submit Application`
+                    : "Submit Application"}
               </button>
+              {(form.price ?? 0) > 0 && (
+                <p className="mt-3 text-xs text-muted">
+                  Payments are handled by Razorpay with bank-grade security.
+                  You will be charged{" "}
+                  <span className="font-semibold text-foreground">
+                    {formatHiringPrice(form.price)}
+                  </span>{" "}
+                  exactly once per application.
+                </p>
+              )}
             </form>
             </>
           )}

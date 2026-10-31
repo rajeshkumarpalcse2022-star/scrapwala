@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
       slug: data.slug,
       values: data.values,
       uploads: data.uploads,
+      payment: data.payment,
       userId: user.id,
       userName: user.name,
       userEmail: user.email,

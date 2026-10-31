@@ -8,16 +8,24 @@ import HiringApplication, {
   IHiringApplicationUpload,
 } from "@/models/HiringApplication";
 import HiringUpload from "@/models/HiringUpload";
+import HiringPayment, { IHiringPayment } from "@/models/HiringPayment";
 import Counter from "@/models/Counter";
 import {
   HiringFieldConfig,
   defaultHiringFields,
+  formatHiringPrice,
   isUploadFieldType,
   normalizeFieldValue,
   slugifyTitle,
   uniqueSlug,
   validateApplicationValues,
 } from "@/lib/utils/hiring-fields";
+import {
+  createRazorpayOrder,
+  getRazorpayKeyId,
+  isRazorpayConfigured,
+  verifyRazorpayPaymentSignature,
+} from "@/lib/razorpay";
 import { buildApplicationSummaryPdf } from "@/lib/utils/hiring-pdf";
 import {
   createHiringDeliveryUrl,
@@ -37,6 +45,8 @@ export interface HiringFormDTO {
   description: string;
   instructions?: string;
   fields: HiringFieldConfig[];
+  /** Application fee in rupees. 0 = free; > 0 requires a Razorpay payment. */
+  price: number;
   status: "draft" | "published" | "closed";
   isFeatured: boolean;
   applicationCount: number;
@@ -52,6 +62,8 @@ export interface PublicHiringFormDTO {
   description: string;
   instructions?: string;
   fields: HiringFieldConfig[];
+  /** Application fee in rupees. 0 = free; > 0 requires a Razorpay payment. */
+  price: number;
 }
 
 export interface HiringApplicationListItem {
@@ -66,6 +78,13 @@ export interface HiringApplicationListItem {
   submittedAt: string;
   answerCount: number;
   uploadCount: number;
+  /** Present when the application was submitted against a paid form. */
+  payment?: {
+    status: string;
+    amount: number;
+    currency: string;
+    paidAt?: string;
+  };
 }
 
 export interface HiringApplicationDetailDTO {
@@ -89,6 +108,15 @@ export interface HiringApplicationDetailDTO {
     mimeType: string;
     size: number;
   }[];
+  /** Verified payment when this application carried a fee. */
+  payment?: {
+    orderId: string;
+    paymentId?: string;
+    status: string;
+    amount: number;
+    currency: string;
+    paidAt?: string;
+  } | null;
   formSnapshot: {
     title: string;
     slug: string;
@@ -202,6 +230,7 @@ function serializeForm(
     description: form.description,
     instructions: form.instructions,
     fields: (form.fields as unknown as HiringFieldConfig[]) ?? [],
+    price: form.price ?? 0,
     status: form.status,
     isFeatured: form.isFeatured,
     applicationCount,
@@ -219,6 +248,7 @@ function serializePublicForm(form: IHiringForm): PublicHiringFormDTO {
     description: form.description,
     instructions: form.instructions,
     fields: (form.fields as unknown as HiringFieldConfig[]) ?? [],
+    price: form.price ?? 0,
   };
 }
 
@@ -255,12 +285,18 @@ export async function getAdminHiringForm(id: string): Promise<HiringFormDTO> {
   return serializeForm(form, count);
 }
 
+/** Rupees rounded to 2 decimals — Razorpay charges get computed in paise. */
+function normalizePrice(price: number): number {
+  return Math.round((price ?? 0) * 100) / 100;
+}
+
 export async function createHiringForm(
   input: {
     title: string;
     subtitle?: string;
     description: string;
     instructions?: string;
+    price: number;
     status: "draft" | "published";
     isFeatured: boolean;
     fields: HiringFieldConfig[];
@@ -292,6 +328,7 @@ export async function createHiringForm(
     description: input.description,
     instructions: input.instructions,
     fields: input.fields,
+    price: Math.max(0, normalizePrice(input.price)),
     status: input.status,
     isFeatured: input.isFeatured,
     createdBy: new mongoose.Types.ObjectId(adminId),
@@ -307,6 +344,7 @@ export async function updateHiringForm(
     subtitle?: string;
     description: string;
     instructions?: string;
+    price: number;
     status: "draft" | "published" | "closed";
     isFeatured: boolean;
     fields: HiringFieldConfig[];
@@ -334,6 +372,7 @@ export async function updateHiringForm(
   form.description = input.description;
   form.instructions = input.instructions;
   form.fields = input.fields as IHiringForm["fields"];
+  form.price = Math.max(0, normalizePrice(input.price));
   form.status = input.status;
   form.isFeatured = input.isFeatured;
   await form.save();
@@ -545,10 +584,124 @@ export async function stageHiringUpload(
 
 /* ── Application services ── */
 
+export interface HiringPaymentOrderDTO {
+  orderId: string;
+  /** Amount in paise — what Razorpay Checkout expects. */
+  amount: number;
+  currency: string;
+  keyId: string;
+  formTitle: string;
+  feeLabel: string;
+  prefill: {
+    name: string;
+    email?: string;
+    contact?: string;
+  };
+}
+
+/**
+ * Creates a Razorpay order for the application fee of a published form so
+ * Razorpay Checkout can open immediately after. The order is persisted as a
+ * HiringPayment record ("created") that the application submission later
+ * verifies — an order nobody can prove ownership of is worthless.
+ */
+export async function createHiringPaymentOrder(input: {
+  slug: string;
+  userId: string;
+  userName: string;
+  userEmail?: string;
+  userPhone?: string;
+}): Promise<HiringPaymentOrderDTO> {
+  await connectDB();
+
+  if (!isRazorpayConfigured()) {
+    throw new ApiError(
+      503,
+      "Online payments are not configured yet. Please contact support.",
+      "PAYMENTS_NOT_CONFIGURED"
+    );
+  }
+
+  const form = await HiringForm.findOne({
+    slug: input.slug,
+    status: "published",
+  });
+  if (!form) {
+    throw new ApiError(
+      404,
+      "This job opening is not accepting applications right now",
+      "NOT_FOUND"
+    );
+  }
+
+  const price = form.price ?? 0;
+  if (price <= 0) {
+    throw new ApiError(
+      400,
+      `"${form.title}" does not require any payment`,
+      "PAYMENT_NOT_REQUIRED"
+    );
+  }
+
+  const existing = await HiringApplication.findOne({
+    form: form._id,
+    applicant: new mongoose.Types.ObjectId(input.userId),
+  }).select("_id applicationId");
+  if (existing) {
+    throw new ApiError(
+      409,
+      `You have already applied for this position (Application ID: ${existing.applicationId}).`,
+      "DUPLICATE_APPLICATION"
+    );
+  }
+
+  const amountInPaise = Math.round(price * 100);
+  const receipt = `hw-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  const order = await createRazorpayOrder({
+    amountInPaise,
+    receipt,
+    notes: {
+      purpose: "hiring_application",
+      formId: String(form._id),
+      userId: input.userId,
+    },
+  });
+
+  await HiringPayment.create({
+    razorpayOrderId: order.id,
+    form: form._id,
+    formTitle: form.title,
+    formSlug: form.slug,
+    user: new mongoose.Types.ObjectId(input.userId),
+    amount: order.amount,
+    currency: order.currency,
+    status: "created",
+  });
+
+  return {
+    orderId: order.id,
+    amount: order.amount,
+    currency: order.currency,
+    keyId: getRazorpayKeyId(),
+    formTitle: form.title,
+    feeLabel: formatHiringPrice(price),
+    prefill: {
+      name: input.userName,
+      email: input.userEmail,
+      contact: input.userPhone,
+    },
+  };
+}
+
 export async function createHiringApplication(input: {
   slug: string;
   values: Record<string, unknown>;
   uploads: Record<string, string>;
+  payment?: {
+    razorpayOrderId: string;
+    razorpayPaymentId: string;
+    razorpaySignature: string;
+  };
   userId: string;
   userName: string;
   userEmail?: string;
@@ -582,6 +735,72 @@ export async function createHiringApplication(input: {
       `You have already applied for this position (Application ID: ${existing.applicationId}).`,
       "DUPLICATE_APPLICATION"
     );
+  }
+
+  /* ── Paid form gate: verify the Razorpay payment before anything else. ── */
+  const fee = form.price ?? 0;
+  let paymentRecord: IHiringPayment | null = null;
+  if (fee > 0) {
+    if (!input.payment) {
+      throw new ApiError(
+        402,
+        `"${form.title}" has an application fee of ${formatHiringPrice(fee)}. Pay the fee to submit your application.`,
+        "PAYMENT_REQUIRED"
+      );
+    }
+
+    if (
+      !verifyRazorpayPaymentSignature(
+        input.payment.razorpayOrderId,
+        input.payment.razorpayPaymentId,
+        input.payment.razorpaySignature
+      )
+    ) {
+      throw new ApiError(
+        400,
+        "Payment verification failed. If you were charged, contact support before paying again.",
+        "PAYMENT_VERIFICATION_FAILED"
+      );
+    }
+
+    paymentRecord = await HiringPayment.findOne({
+      razorpayOrderId: input.payment.razorpayOrderId,
+    });
+    if (!paymentRecord) {
+      throw new ApiError(
+        400,
+        "This payment order is not recognised. Please start a new payment.",
+        "PAYMENT_NOT_FOUND"
+      );
+    }
+    if (
+      String(paymentRecord.user) !== input.userId ||
+      String(paymentRecord.form) !== String(form._id)
+    ) {
+      throw new ApiError(
+        400,
+        "This payment does not belong to this application. Please start a new payment.",
+        "PAYMENT_MISMATCH"
+      );
+    }
+    if (
+      paymentRecord.status === "paid" &&
+      paymentRecord.application &&
+      mongoose.Types.ObjectId.isValid(String(paymentRecord.application))
+    ) {
+      throw new ApiError(
+        409,
+        "This payment has already been used for an application. If you were charged twice, contact support.",
+        "PAYMENT_ALREADY_USED"
+      );
+    }
+    if (paymentRecord.amount !== Math.round(fee * 100)) {
+      throw new ApiError(
+        400,
+        "The paid amount does not match the current application fee. Please start a new payment.",
+        "PAYMENT_AMOUNT_MISMATCH"
+      );
+    }
   }
 
   const fields = form.fields as unknown as HiringFieldConfig[];
@@ -730,6 +949,30 @@ export async function createHiringApplication(input: {
     { $set: { application: application._id }, $unset: { purgeAt: 1 } }
   );
 
+  // Bind the verified payment to the application so admins can always see
+  // who paid, for how much, with which Razorpay ids.
+  if (paymentRecord && input.payment) {
+    try {
+      await HiringPayment.updateOne(
+        { _id: paymentRecord._id, application: { $in: [null, undefined] } },
+        {
+          $set: {
+            status: "paid",
+            razorpayPaymentId: input.payment.razorpayPaymentId,
+            razorpaySignature: input.payment.razorpaySignature,
+            application: application._id,
+            paidAt: now,
+          },
+          $unset: { failureReason: 1 },
+        }
+      );
+    } catch {
+      // The application itself is the source of truth; a failed payment
+      // linkage keeps the payment record "paid" but unattached, which the
+      // duplicate-payment guard treats as safely retryable.
+    }
+  }
+
   return {
     applicationId: application.applicationId,
     jobTitle: form.title,
@@ -794,6 +1037,27 @@ export async function listHiringApplications(params: {
     uploadCount: app.uploads?.length ?? 0,
   }));
 
+  // Fee status for the page's applications — free forms have no payment row.
+  const applicationIds = applications.map((app) => app._id);
+  const payments = await HiringPayment.find({
+    application: { $in: applicationIds },
+  })
+    .select("application status amount currency paidAt")
+    .lean<Pick<IHiringPayment, "application" | "status" | "amount" | "currency" | "paidAt">[]>();
+  const paymentsByApplication = new Map(
+    payments.map((payment) => [String(payment.application), payment])
+  );
+  for (const item of items) {
+    const payment = paymentsByApplication.get(item.id);
+    if (!payment) continue;
+    item.payment = {
+      status: payment.status,
+      amount: payment.amount,
+      currency: payment.currency,
+      paidAt: payment.paidAt ? toIso(payment.paidAt) : undefined,
+    };
+  }
+
   return {
     items,
     pagination: {
@@ -805,7 +1069,10 @@ export async function listHiringApplications(params: {
   };
 }
 
-function serializeDetail(app: IHiringApplication): HiringApplicationDetailDTO {
+function serializeDetail(
+  app: IHiringApplication,
+  payment?: Pick<IHiringPayment, "razorpayOrderId" | "razorpayPaymentId" | "status" | "amount" | "currency" | "paidAt"> | null
+): HiringApplicationDetailDTO {
   return {
     id: String(app._id),
     applicationId: app.applicationId,
@@ -827,6 +1094,16 @@ function serializeDetail(app: IHiringApplication): HiringApplicationDetailDTO {
       mimeType: upload.mimeType,
       size: upload.size,
     })),
+    payment: payment
+      ? {
+          orderId: payment.razorpayOrderId,
+          paymentId: payment.razorpayPaymentId,
+          status: payment.status,
+          amount: payment.amount,
+          currency: payment.currency,
+          paidAt: payment.paidAt ? toIso(payment.paidAt) : undefined,
+        }
+      : undefined,
     formSnapshot: {
       title: app.formSnapshot.title,
       slug: app.formSnapshot.slug,
@@ -852,7 +1129,13 @@ export async function getHiringApplicationDetail(
   }
   const app = await HiringApplication.findById(id).select("-__v");
   if (!app) throw new ApiError(404, "Application not found", "NOT_FOUND");
-  return serializeDetail(app);
+
+  const payment = await HiringPayment.findOne({
+    application: app._id,
+  }).select(
+    "razorpayOrderId razorpayPaymentId status amount currency paidAt"
+  );
+  return serializeDetail(app, payment);
 }
 
 export async function getOwnHiringApplication(
@@ -868,7 +1151,14 @@ export async function getOwnHiringApplication(
     applicant: new mongoose.Types.ObjectId(userId),
   }).select("-__v");
   if (!app) throw new ApiError(404, "Application not found", "NOT_FOUND");
-  return serializeDetail(app);
+
+  const payment = await HiringPayment.findOne({
+    application: app._id,
+    user: new mongoose.Types.ObjectId(userId),
+  }).select(
+    "razorpayOrderId razorpayPaymentId status amount currency paidAt"
+  );
+  return serializeDetail(app, payment);
 }
 
 export interface OwnHiringApplicationListItem {
@@ -878,6 +1168,12 @@ export interface OwnHiringApplicationListItem {
   jobSlug: string;
   status: string;
   submittedAt: string;
+  /** Fee payment info when this application carried a fee. */
+  payment?: {
+    status: string;
+    amount: number;
+    currency: string;
+  };
 }
 
 /** All applications the logged-in customer has submitted, newest first. */
@@ -891,7 +1187,7 @@ export async function listOwnHiringApplications(
     .sort({ submittedAt: -1 })
     .select("applicationId formSnapshot.title formSnapshot.slug status submittedAt")
     .lean();
-  return apps.map((app) => ({
+  const items: OwnHiringApplicationListItem[] = apps.map((app) => ({
     id: String(app._id),
     applicationId: app.applicationId,
     jobTitle: app.formSnapshot.title,
@@ -899,6 +1195,26 @@ export async function listOwnHiringApplications(
     status: app.status,
     submittedAt: toIso(app.submittedAt),
   }));
+
+  const payments = await HiringPayment.find({
+    user: new mongoose.Types.ObjectId(userId),
+    application: { $in: apps.map((app) => app._id) },
+  })
+    .select("application status amount")
+    .lean<Pick<IHiringPayment, "application" | "status" | "amount">[]>();
+  const paymentsByApplication = new Map(
+    payments.map((payment) => [String(payment.application), payment])
+  );
+  for (const item of items) {
+    const payment = paymentsByApplication.get(item.id);
+    if (!payment) continue;
+    item.payment = {
+      status: payment.status,
+      amount: payment.amount,
+      currency: "INR",
+    };
+  }
+  return items;
 }
 
 export async function updateHiringApplicationStatus(
@@ -1112,6 +1428,7 @@ const hiringService = {
   getPublishedHiringFormBySlug,
   getFeaturedHiringForm,
   stageHiringUpload,
+  createHiringPaymentOrder,
   createHiringApplication,
   listHiringApplications,
   getHiringApplicationDetail,

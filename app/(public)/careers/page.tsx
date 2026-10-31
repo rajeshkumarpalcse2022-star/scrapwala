@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Loader2, Users } from "lucide-react";
+import { ArrowRight, IndianRupee, Loader2, Users } from "lucide-react";
 import Container from "@/components/common/Container";
 import { useAuth } from "@/hooks/useAuth";
+import { formatHiringPrice } from "@/lib/utils/hiring-fields";
 
 interface PublicForm {
   id: string;
@@ -14,6 +15,8 @@ interface PublicForm {
   subtitle?: string;
   description: string;
   instructions?: string;
+  /** Application fee in rupees; 0 or missing = free. */
+  price?: number;
 }
 
 function excerpt(text: string, limit = 220): string {
@@ -153,6 +156,15 @@ export default function CareersPage() {
                         {form.subtitle && (
                           <p className="mt-0.5 text-sm text-muted">
                             {form.subtitle}
+                          </p>
+                        )}
+                        {(form.price ?? 0) > 0 && (
+                          <p className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-border bg-white/70 px-2.5 py-0.5 text-xs font-semibold text-foreground">
+                            <IndianRupee
+                              className="h-3 w-3 text-primary"
+                              aria-hidden="true"
+                            />
+                            Application fee {formatHiringPrice(form.price)}
                           </p>
                         )}
                         <p className="mt-2 text-sm leading-relaxed text-muted">

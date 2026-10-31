@@ -23,6 +23,12 @@ interface OwnApplication {
   jobSlug: string;
   status: string;
   submittedAt: string;
+  /** Fee payment info when this application carried a fee. */
+  payment?: {
+    status: string;
+    amount: number;
+    currency: string;
+  };
 }
 
 /** Badge + message per status. `submitted` = admin has not decided yet. */
@@ -231,6 +237,16 @@ export default function ApplicationHistoryPage() {
                         <p className="mt-1 text-xs text-muted">
                           Applied on {formatDate(application.submittedAt)}
                         </p>
+                        {application.payment?.status === "paid" && (
+                          <p className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                            <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                            Fee paid ₹
+                            {(application.payment.amount / 100).toLocaleString(
+                              "en-IN",
+                              { maximumFractionDigits: 2 }
+                            )}
+                          </p>
+                        )}
                         <p className="mt-3 text-sm leading-relaxed text-muted">
                           {view.message}
                         </p>

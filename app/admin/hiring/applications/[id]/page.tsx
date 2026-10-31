@@ -10,6 +10,7 @@ import {
   Download,
   FileText,
   Image as ImageIcon,
+  IndianRupee,
   Loader2,
   Trash2,
 } from "lucide-react";
@@ -33,6 +34,16 @@ interface UploadRef {
   size: number;
 }
 
+interface PaymentRef {
+  orderId: string;
+  paymentId?: string;
+  status: string;
+  /** Amount in paise, exactly as charged by Razorpay. */
+  amount: number;
+  currency: string;
+  paidAt?: string;
+}
+
 interface ApplicationDetail {
   id: string;
   applicationId: string;
@@ -46,6 +57,7 @@ interface ApplicationDetail {
   submittedAt: string;
   answers: Answer[];
   uploads: UploadRef[];
+  payment?: PaymentRef;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -286,6 +298,65 @@ export default function HiringApplicationDetailPage() {
               </dd>
             </div>
           </dl>
+
+          {application.payment && (
+            <div className="mt-5 border-t border-gray-100 pt-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-700">
+                  Application Fee
+                </h3>
+                <span
+                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    application.payment.status === "paid"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : application.payment.status === "failed"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-amber-100 text-amber-700"
+                  }`}
+                >
+                  {application.payment.status === "paid"
+                    ? "Paid"
+                    : application.payment.status === "failed"
+                      ? "Failed"
+                      : "Awaiting payment"}
+                </span>
+              </div>
+              <p className="mt-2 flex items-center gap-1.5 text-lg font-bold text-gray-900">
+                <IndianRupee className="h-4 w-4 text-gray-400" />
+                ₹
+                {(application.payment.amount / 100).toLocaleString("en-IN", {
+                  maximumFractionDigits: 2,
+                })}
+              </p>
+              {application.payment.paidAt && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Paid on{" "}
+                  {new Date(application.payment.paidAt).toLocaleString("en-IN", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                </p>
+              )}
+              <p className="mt-2 break-all text-xs text-gray-500">
+                Order:{" "}
+                <span className="font-mono text-gray-700">
+                  {application.payment.orderId}
+                </span>
+                {application.payment.paymentId && (
+                  <>
+                    {" · "}Payment:{" "}
+                    <span className="font-mono text-gray-700">
+                      {application.payment.paymentId}
+                    </span>
+                  </>
+                )}
+              </p>
+              <p className="mt-1 text-xs text-gray-400">
+                Reconcile this with the Razorpay dashboard using the order or
+                payment ID.
+              </p>
+            </div>
+          )}
 
           <div className="mt-5 border-t border-gray-100 pt-4">
             <label

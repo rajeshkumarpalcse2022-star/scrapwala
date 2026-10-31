@@ -85,11 +85,21 @@ export const hiringFieldSchema = z
 
 export const hiringFormStatusSchema = z.enum(["draft", "published", "closed"]);
 
+/**
+ * Application fee in rupees. 0 = free form; anything above 0 is charged via
+ * Razorpay before an application can be submitted.
+ */
+export const hiringFormPriceSchema = z
+  .number()
+  .min(0, "Application fee cannot be negative")
+  .max(1_000_000, "Application fee is too high");
+
 export const createHiringFormSchema = z.object({
   title: z.string().trim().min(3, "Job title must be at least 3 characters").max(140),
   subtitle: z.string().trim().max(180).optional(),
   description: z.string().trim().min(10, "Please write a hiring description").max(8000),
   instructions: z.string().trim().max(4000).optional(),
+  price: hiringFormPriceSchema.default(0),
   status: z.enum(["draft", "published"]).default("draft"),
   isFeatured: z.boolean().default(false),
   fields: z
@@ -115,6 +125,21 @@ export const submitHiringApplicationSchema = z.object({
   values: z.record(z.string(), z.unknown()).default({}),
   /** Map of fieldKey -> staged upload id from POST /api/hiring/uploads. */
   uploads: z.record(z.string(), z.string().trim().min(1)).default({}),
+  /**
+   * Required when the form carries an application fee: the successful
+   * Razorpay Checkout callback that the server re-verifies.
+   */
+  payment: z
+    .object({
+      razorpayOrderId: z.string().trim().min(6).max(120),
+      razorpayPaymentId: z.string().trim().min(6).max(120),
+      razorpaySignature: z.string().trim().min(8).max(256),
+    })
+    .optional(),
+});
+
+export const hiringPaymentOrderSchema = z.object({
+  slug: z.string().trim().min(1).max(120),
 });
 
 export const updateHiringApplicationStatusSchema = z.object({
@@ -126,3 +151,4 @@ export type UpdateHiringFormInput = z.infer<typeof updateHiringFormSchema>;
 export type ListHiringApplicationsInput = z.infer<typeof listHiringApplicationsSchema>;
 export type SubmitHiringApplicationInput = z.infer<typeof submitHiringApplicationSchema>;
 export type HiringFormStatus = z.infer<typeof hiringFormStatusSchema>;
+export type HiringPaymentOrderInput = z.infer<typeof hiringPaymentOrderSchema>;

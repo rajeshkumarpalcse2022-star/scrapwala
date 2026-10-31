@@ -21,6 +21,7 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminModal from "@/components/admin/AdminModal";
 import AdminEmptyState from "@/components/admin/AdminEmptyState";
 import AdminStatusBadge from "@/components/admin/AdminStatusBadge";
+import { formatHiringPrice } from "@/lib/utils/hiring-fields";
 
 interface FormRow {
   id: string;
@@ -30,6 +31,8 @@ interface FormRow {
   description: string;
   status: "draft" | "published" | "closed";
   isFeatured: boolean;
+  /** Application fee in rupees; 0 = free. */
+  price?: number;
   applicationCount: number;
   createdAt: string;
   updatedAt: string;
@@ -45,6 +48,13 @@ interface ApplicationRow {
   applicantPhone?: string;
   status: string;
   submittedAt: string;
+  /** Fee payment info when the application carried a fee. */
+  payment?: {
+    status: string;
+    amount: number;
+    currency: string;
+    paidAt?: string;
+  };
 }
 
 interface Pagination {
@@ -90,6 +100,29 @@ function formatDate(value: string): string {
     month: "short",
     year: "numeric",
   });
+}
+
+/** Amount arrives in paise from the payment gateway. */
+function rupeesLabel(amountInPaise: number): string {
+  return `₹${(amountInPaise / 100).toLocaleString("en-IN", {
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+/** Fee cell for the applications list: Free / Unpaid / Paid / Failed. */
+function applicationFeeLabel(payment?: ApplicationRow["payment"]): {
+  label: string;
+  className: string;
+} {
+  if (!payment) return { label: "Free", className: "text-gray-400" };
+  const amount = rupeesLabel(payment.amount);
+  if (payment.status === "paid") {
+    return { label: `Paid · ${amount}`, className: "text-emerald-700" };
+  }
+  if (payment.status === "failed") {
+    return { label: `Payment failed · ${amount}`, className: "text-red-600" };
+  }
+  return { label: `Awaiting payment · ${amount}`, className: "text-amber-700" };
 }
 
 export default function AdminHiringPage() {
@@ -425,6 +458,7 @@ export default function AdminHiringPage() {
                   <tr>
                     <th className="px-4 py-3 font-medium">Job Title</th>
                     <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Fee</th>
                     <th className="px-4 py-3 font-medium">Applications</th>
                     <th className="px-4 py-3 font-medium">Updated</th>
                     <th className="px-4 py-3 text-right font-medium">Actions</th>
@@ -451,6 +485,9 @@ export default function AdminHiringPage() {
                           colors={FORM_STATUS_COLORS}
                           labels={FORM_STATUS_LABELS}
                         />
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">
+                        {formatHiringPrice(form.price)}
                       </td>
                       <td className="px-4 py-3 text-gray-700">
                         {form.applicationCount}
@@ -494,7 +531,8 @@ export default function AdminHiringPage() {
                       />
                     </div>
                     <p className="text-xs text-gray-400">
-                      /careers/{form.slug} · {form.applicationCount} application(s)
+                      /careers/{form.slug} · {formatHiringPrice(form.price)} ·{" "}
+                      {form.applicationCount} application(s)
                       · updated {formatDate(form.updatedAt)}
                     </p>
                     <FormActions
@@ -561,6 +599,7 @@ export default function AdminHiringPage() {
                     <th className="px-4 py-3 font-medium">Position</th>
                     <th className="px-4 py-3 font-medium">Submitted</th>
                     <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Fee</th>
                     <th className="px-4 py-3 text-right font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -590,6 +629,13 @@ export default function AdminHiringPage() {
                           colors={APP_STATUS_COLORS}
                           labels={APP_STATUS_LABELS}
                         />
+                      </td>
+                      <td
+                        className={`px-4 py-3 text-xs font-medium ${
+                          applicationFeeLabel(application.payment).className
+                        }`}
+                      >
+                        {applicationFeeLabel(application.payment).label}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
@@ -670,6 +716,13 @@ export default function AdminHiringPage() {
                     <p className="text-xs text-gray-500">
                       {application.applicantEmail || application.applicantPhone || "—"} ·{" "}
                       {formatDate(application.submittedAt)}
+                    </p>
+                    <p
+                      className={`text-xs font-medium ${
+                        applicationFeeLabel(application.payment).className
+                      }`}
+                    >
+                      {applicationFeeLabel(application.payment).label}
                     </p>
                     <div className="flex flex-wrap items-center gap-2 pt-1">
                       <Link

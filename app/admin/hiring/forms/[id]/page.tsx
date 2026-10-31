@@ -9,6 +9,7 @@ import {
   ArrowUp,
   CheckCircle2,
   Eye,
+  IndianRupee,
   Loader2,
   Plus,
   Save,
@@ -45,6 +46,8 @@ interface FormState {
   subtitle: string;
   description: string;
   instructions: string;
+  /** Application fee in rupees, kept as raw text for the number input. */
+  price: string;
   isFeatured: boolean;
   status: "draft" | "published" | "closed";
   fields: FormField[];
@@ -143,6 +146,7 @@ export default function HiringFormBuilderPage() {
           subtitle: form.subtitle ?? "",
           description: form.description,
           instructions: form.instructions ?? "",
+          price: String(form.price ?? 0),
           isFeatured: Boolean(form.isFeatured),
           status: form.status,
           fields: (form.fields ?? []).map((field: FormField) => ({
@@ -251,6 +255,18 @@ export default function HiringFormBuilderPage() {
         setSaveError("Please write a hiring description (10+ characters).");
         return false;
       }
+      const trimmedPrice = state.price.trim();
+      const parsedPrice = trimmedPrice === "" ? 0 : Number(trimmedPrice);
+      if (
+        !Number.isFinite(parsedPrice) ||
+        parsedPrice < 0 ||
+        parsedPrice > 1_000_000
+      ) {
+        setSaveError(
+          "Application fee must be a number between 0 and 10,00,000 (set 0 for a free form)."
+        );
+        return false;
+      }
       if (state.fields.length === 0) {
         setSaveError("A form needs at least one field.");
         return false;
@@ -285,6 +301,7 @@ export default function HiringFormBuilderPage() {
           subtitle: state.subtitle.trim() || undefined,
           description: state.description.trim(),
           instructions: state.instructions.trim() || undefined,
+          price: Math.round(parsedPrice * 100) / 100,
           isFeatured: state.isFeatured,
           status,
           fields: state.fields.map((field) => ({
@@ -493,6 +510,41 @@ export default function HiringFormBuilderPage() {
               placeholder="e.g. Carry an ID proof for the interview…"
               className={`${INPUT_CLASS} resize-none`}
             />
+          </div>
+          <div>
+            <label className={LABEL_CLASS}>Application Fee (₹)</label>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              value={state.price}
+              onChange={(event) => patch({ price: event.target.value })}
+              placeholder="0"
+              className={INPUT_CLASS}
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Set 0 (or leave empty) for a free form.
+            </p>
+          </div>
+          <div className="flex items-end">
+            <p className="mb-2 w-full rounded-lg bg-gray-50 px-3 py-2 text-xs leading-relaxed text-gray-500">
+              {Number(state.price || 0) > 0 ? (
+                <>
+                  This form currently charges{" "}
+                  <span className="font-semibold text-gray-700">
+                    ₹{state.price}
+                  </span>{" "}
+                  per application via Razorpay. Applicants cannot submit
+                  without paying.
+                </>
+              ) : (
+                <>
+                  This form is currently free to submit — no payment window is
+                  shown to applicants.
+                </>
+              )}
+            </p>
           </div>
           <label className="inline-flex cursor-pointer items-center gap-3 sm:col-span-2">
             <button
@@ -861,6 +913,16 @@ export default function HiringFormBuilderPage() {
             <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
               <p className="font-medium">Instructions</p>
               <p className="mt-1 whitespace-pre-wrap">{state.instructions}</p>
+            </div>
+          )}
+          {Number(state.price || 0) > 0 && (
+            <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">
+              <IndianRupee className="h-4 w-4 shrink-0" />
+              <p>
+                <span className="font-semibold">Application fee:</span>{" "}
+                ₹{state.price} — applicants pay this through Razorpay before
+                submitting.
+              </p>
             </div>
           )}
           <DynamicHiringFields

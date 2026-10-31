@@ -412,3 +412,16 @@ export function matchAutofillValues(
   }
   return result;
 }
+
+/**
+ * "₹99" / "₹1,250.50" — used by admin and public UIs whenever an application
+ * fee is displayed.
+ */
+export function formatHiringPrice(price: number | undefined | null): string {
+  const amount = Number(price ?? 0);
+  if (!Number.isFinite(amount) || amount <= 0) return "Free";
+  return `₹${amount.toLocaleString("en-IN", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}`;
+}
