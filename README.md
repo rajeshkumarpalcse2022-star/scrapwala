@@ -8,7 +8,7 @@ Smart doorstep scrap pickup and recycling service.
 - TypeScript
 - Tailwind CSS
 - Lucide React (icons)
-
+ 
 ## Getting Started
 
 ### Prerequisites
