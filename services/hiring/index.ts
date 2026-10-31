@@ -954,7 +954,8 @@ export async function createHiringApplication(input: {
   if (paymentRecord && input.payment) {
     try {
       await HiringPayment.updateOne(
-        { _id: paymentRecord._id, application: { $in: [null, undefined] } },
+        // { field: null } matches both an explicit null and a missing field.
+        { _id: paymentRecord._id, application: null },
         {
           $set: {
             status: "paid",
