@@ -17,7 +17,7 @@ import {
 import Link from "next/link";
 import PickupTimeline from "@/components/pickup/PickupTimeline";
 
-const CONFIRMATION_AUDIO_SRC = "/audio/pickup-confirmation.mp3";
+const CONFIRMATION_AUDIO_SRC = "/audio/pickup-confirmation.wav";
 
 interface ConfirmedPickup {
   pickupId: string;

@@ -4,7 +4,7 @@ import connectDB from "@/lib/db/mongoose"
 import type { OtpPurpose } from "@/models/OtpVerification"
 
 const OTP_LENGTH = 6
-const OTP_EXPIRY_SECONDS = 40
+const OTP_EXPIRY_SECONDS = 60
 const RESEND_COOLDOWN_SECONDS = 60
 
 export function generateOtp(): string {

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const OTP_RESEND_SECONDS = 40;
+const OTP_RESEND_SECONDS = 60;
 
 type Step = "credentials" | "otp" | "password";
 
@@ -226,7 +226,7 @@ export default function LoginPage() {
         <h1 className="text-2xl font-bold text-foreground">Verify your email</h1>
         <p className="mt-2 text-sm text-muted">
           We sent a 6-digit OTP to <span className="font-medium">{collectorEmail}</span>.
-          It expires in 40 seconds.
+          It expires in 60 seconds.
         </p>
 
         <form onSubmit={handleVerifyOtp} className="mt-6 space-y-4" noValidate>

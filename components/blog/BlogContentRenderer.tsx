@@ -1,10 +1,19 @@
 import { Fragment } from "react";
+import { ExternalLink, Link2 } from "lucide-react";
 import RemoteImage from "@/components/common/RemoteImage";
 import {
+  blogHeadingAnchor,
   parseInlineText,
+  sanitizeHref,
   type BlogBlock,
   type InlineNode,
+  type TextAlign,
 } from "@/lib/utils/blog-content";
+import {
+  parseSocialEmbed,
+  SOCIAL_EMBED_PROVIDER_LABELS,
+  type SocialEmbedProvider,
+} from "@/lib/utils/social-embeds";
 
 /**
  * Renders structured article blocks as semantic React elements.
@@ -20,6 +29,12 @@ function renderInline(nodes: InlineNode[]): React.ReactNode[] {
         return <strong key={key}>{renderInline(node.children)}</strong>;
       case "em":
         return <em key={key}>{renderInline(node.children)}</em>;
+      case "underline":
+        return (
+          <u key={key} className="decoration-primary/50 underline-offset-2">
+            {renderInline(node.children)}
+          </u>
+        );
       case "a":
         return (
           <a
@@ -49,10 +64,78 @@ interface BlogContentRendererProps {
 }
 
 const HEADING_CLASSES: Record<number, string> = {
-  2: "mt-10 mb-4 text-2xl sm:text-3xl font-bold tracking-tight text-foreground first:mt-0",
-  3: "mt-8 mb-3 text-xl sm:text-2xl font-semibold tracking-tight text-foreground first:mt-0",
-  4: "mt-6 mb-2 text-lg font-semibold text-foreground first:mt-0",
+  2: "group relative mt-12 mb-4 scroll-mt-24 border-b border-border pb-2 text-2xl font-bold tracking-tight text-foreground first:mt-0 sm:text-3xl",
+  3: "mt-9 mb-3 scroll-mt-24 text-xl font-semibold tracking-tight text-foreground first:mt-0 sm:text-2xl",
+  4: "mt-7 mb-2 scroll-mt-24 text-lg font-semibold text-foreground first:mt-0",
 };
+
+const ALIGN_CLASSES: Record<TextAlign, string> = {
+  left: "text-left",
+  center: "text-center",
+  right: "text-right",
+  justify: "text-justify",
+};
+
+const EMBED_FRAME_CLASSES: Record<SocialEmbedProvider, string> = {
+  youtube: "aspect-video",
+  vimeo: "aspect-video",
+  facebook: "h-[560px] max-h-[80vh] sm:h-[640px]",
+  instagram: "mx-auto h-[640px] max-h-[80vh] max-w-[540px]",
+};
+
+function alignmentClass(align?: TextAlign): string {
+  return align ? ALIGN_CLASSES[align] : "";
+}
+
+function ExternalLinkCard({
+  url,
+  title,
+  description,
+  fallback = false,
+}: {
+  url: string;
+  title: string;
+  description?: string;
+  fallback?: boolean;
+}) {
+  const href = sanitizeHref(url);
+  if (!href) return null;
+
+  let host = href;
+  try {
+    host = new URL(href).hostname.replace(/^www\./, "");
+  } catch {
+    // Keep the full URL when parsing fails.
+  }
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="my-6 flex items-start gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:border-primary/30 hover:bg-card-hover sm:p-5"
+    >
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-light text-primary">
+        <Link2 className="h-5 w-5" aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-semibold uppercase tracking-wide text-primary">
+          {fallback ? "View original post" : "Recommended link"}
+        </span>
+        <span className="mt-1 block font-semibold leading-snug text-foreground">
+          {title}
+        </span>
+        {description && (
+          <span className="mt-1 block text-sm leading-relaxed text-muted">
+            {description}
+          </span>
+        )}
+        <span className="mt-1.5 block truncate text-xs text-muted">{host}</span>
+      </span>
+      <ExternalLink className="mt-1 h-4 w-4 shrink-0 text-muted" aria-hidden />
+    </a>
+  );
+}
 
 export default function BlogContentRenderer({
   blocks,
@@ -74,7 +157,17 @@ export default function BlogContentRenderer({
               | "h3"
               | "h4";
             return (
-              <Tag key={key} className={HEADING_CLASSES[block.level] ?? HEADING_CLASSES[2]}>
+              <Tag
+                key={key}
+                id={blogHeadingAnchor(block.text, index)}
+                className={`${HEADING_CLASSES[block.level] ?? HEADING_CLASSES[2]} ${alignmentClass(block.align)}`}
+              >
+                {block.level === 2 && (
+                  <span
+                    className="absolute -left-4 top-1.5 hidden h-6 w-1.5 rounded-full bg-gradient-to-b from-primary to-secondary sm:block"
+                    aria-hidden
+                  />
+                )}
                 <InlineContent text={block.text} />
               </Tag>
             );
@@ -84,7 +177,7 @@ export default function BlogContentRenderer({
             return (
               <p
                 key={key}
-                className="my-5 text-[16.5px] leading-7 text-foreground/85 sm:leading-8"
+                className={`my-5 text-[16.5px] leading-7 text-foreground/85 first:mt-0 sm:text-[17px] sm:leading-8 ${alignmentClass(block.align)}`}
               >
                 <InlineContent text={block.text} />
               </p>
@@ -94,7 +187,7 @@ export default function BlogContentRenderer({
             return (
               <ul
                 key={key}
-                className="my-5 list-disc space-y-2 pl-6 marker:text-primary text-[16.5px] leading-7 text-foreground/85"
+                className={`my-5 list-disc space-y-2 pl-6 marker:text-primary text-[16.5px] leading-7 text-foreground/85 ${alignmentClass(block.align)}`}
               >
                 {block.items.map((item, itemIndex) => (
                   <li key={`${key}-${itemIndex}`}>
@@ -108,7 +201,7 @@ export default function BlogContentRenderer({
             return (
               <ol
                 key={key}
-                className="my-5 list-decimal space-y-2 pl-6 marker:text-primary marker:font-semibold text-[16.5px] leading-7 text-foreground/85"
+                className={`my-5 list-decimal space-y-2 pl-6 marker:text-primary marker:font-semibold text-[16.5px] leading-7 text-foreground/85 ${alignmentClass(block.align)}`}
               >
                 {block.items.map((item, itemIndex) => (
                   <li key={`${key}-${itemIndex}`}>
@@ -122,16 +215,19 @@ export default function BlogContentRenderer({
             return (
               <blockquote
                 key={key}
-                className="my-6 rounded-r-xl border-l-4 border-primary/70 bg-primary-light/60 px-5 py-4 text-[16.5px] italic leading-7 text-foreground/85"
+                className={`my-7 rounded-2xl border border-primary/15 bg-gradient-to-r from-primary-light/80 to-transparent px-5 py-5 text-[16.5px] italic leading-7 text-foreground/85 sm:text-[17px] ${alignmentClass(block.align)}`}
               >
+                <span className="mb-1 block font-serif text-3xl leading-none text-primary/50" aria-hidden>
+                  “
+                </span>
                 <InlineContent text={block.text} />
               </blockquote>
             );
 
           case "image":
             return (
-              <figure key={key} className="my-7">
-                <div className="overflow-hidden rounded-2xl border border-border bg-muted-light">
+              <figure key={key} className="my-8">
+                <div className="overflow-hidden rounded-2xl border border-border bg-muted-light shadow-sm">
                   <RemoteImage
                     src={block.url}
                     alt={block.alt || block.caption || "Article image"}
@@ -144,6 +240,66 @@ export default function BlogContentRenderer({
                   </figcaption>
                 )}
               </figure>
+            );
+
+          case "embed": {
+            const embed = parseSocialEmbed(block.url);
+            if (!embed) {
+              return (
+                <ExternalLinkCard
+                  key={key}
+                  url={block.url}
+                  title={block.title || "View original post"}
+                  fallback
+                />
+              );
+            }
+
+            const label =
+              SOCIAL_EMBED_PROVIDER_LABELS[embed.provider] ?? "Social post";
+            return (
+              <figure key={key} className="my-8">
+                <div
+                  className={`overflow-hidden rounded-2xl border border-border bg-black shadow-sm ${EMBED_FRAME_CLASSES[embed.provider]}`}
+                >
+                  <iframe
+                    src={embed.embedUrl}
+                    title={block.title || `${label} embed`}
+                    loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                    allowFullScreen
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms allow-presentation"
+                    className="h-full w-full border-0"
+                  />
+                </div>
+                <figcaption className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
+                  <span>
+                    {label}
+                    {block.title ? ` · ${block.title}` : ""}
+                  </span>
+                  <a
+                    href={embed.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-medium text-primary hover:text-primary-dark"
+                  >
+                    Open original
+                    <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                  </a>
+                </figcaption>
+              </figure>
+            );
+          }
+
+          case "link":
+            return (
+              <ExternalLinkCard
+                key={key}
+                url={block.url}
+                title={block.title}
+                description={block.description}
+              />
             );
 
           default:

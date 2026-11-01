@@ -55,7 +55,7 @@ export async function sendOtpEmail({ to, otp, purpose }: SendOtpEmailParams): Pr
           </div>
         </div>
         <p style="color:#9ca3af;font-size:13px;text-align:center;margin-bottom:5px;">
-          This OTP is valid for <strong>40 seconds</strong>.
+          This OTP is valid for <strong>60 seconds</strong>.
         </p>
         <p style="color:#9ca3af;font-size:13px;text-align:center;">
           If you did not request this verification, you can ignore this email.

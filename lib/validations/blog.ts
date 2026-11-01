@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  parseSocialEmbed,
+  SOCIAL_EMBED_PROVIDERS,
+} from "@/lib/utils/social-embeds";
 
 /* ── Shared ────────────────────────────────────────────────────────────── */
 
@@ -22,27 +26,55 @@ const headingText = z.string().trim().min(1).max(300);
 const longText = z.string().max(6000);
 const listItem = z.string().trim().min(1).max(1000);
 
+const textAlignSchema = z.enum(["left", "center", "right", "justify"]);
+const optionalAlign = textAlignSchema.optional();
+
+const externalUrlSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(2048)
+  .refine(
+    (value) => /^https?:\/\/\S+$/i.test(value),
+    "Link must be a valid http(s) URL"
+  );
+
+const embedUrlSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(2048)
+  .refine(
+    (value) => /^https:\/\/\S+$/i.test(value),
+    "Embed URL must be a secure https URL"
+  );
+
 export const blogBlockSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("heading"),
     level: z.union([z.literal(2), z.literal(3), z.literal(4)]),
     text: headingText,
+    align: optionalAlign,
   }),
   z.object({
     type: z.literal("paragraph"),
     text: longText,
+    align: optionalAlign,
   }),
   z.object({
     type: z.literal("bulletList"),
     items: z.array(listItem).min(1).max(100),
+    align: optionalAlign,
   }),
   z.object({
     type: z.literal("orderedList"),
     items: z.array(listItem).min(1).max(100),
+    align: optionalAlign,
   }),
   z.object({
     type: z.literal("blockquote"),
     text: z.string().trim().min(1).max(3000),
+    align: optionalAlign,
   }),
   z.object({
     type: z.literal("image"),
@@ -51,12 +83,53 @@ export const blogBlockSchema = z.discriminatedUnion("type", [
     alt: z.string().trim().max(300).default(""),
     caption: z.string().trim().max(300).optional(),
   }),
+  z.object({
+    type: z.literal("embed"),
+    provider: z.enum(SOCIAL_EMBED_PROVIDERS),
+    url: externalUrlSchema,
+    embedUrl: embedUrlSchema,
+    title: z.string().trim().max(200).optional(),
+  }),
+  z.object({
+    type: z.literal("link"),
+    url: externalUrlSchema,
+    title: z.string().trim().min(1).max(200),
+    description: z.string().trim().max(500).optional(),
+  }),
 ]);
 
 export const blogContentSchema = z
   .array(blogBlockSchema)
   .min(1, "The article needs at least one content block")
-  .max(500, "A post can contain at most 500 content blocks");
+  .max(500, "A post can contain at most 500 content blocks")
+  .superRefine((blocks, ctx) => {
+    blocks.forEach((block, index) => {
+      if (block.type !== "embed") return;
+      const parsed = parseSocialEmbed(block.url);
+      if (!parsed) {
+        ctx.addIssue({
+          code: "custom",
+          path: [index, "url"],
+          message: "Use a supported YouTube, Facebook, Instagram or Vimeo link",
+        });
+        return;
+      }
+      if (parsed.provider !== block.provider) {
+        ctx.addIssue({
+          code: "custom",
+          path: [index, "provider"],
+          message: "Embed provider does not match the supplied URL",
+        });
+      }
+      if (parsed.embedUrl !== block.embedUrl) {
+        ctx.addIssue({
+          code: "custom",
+          path: [index, "embedUrl"],
+          message: "Embed URL is not the canonical URL for this provider",
+        });
+      }
+    });
+  });
 
 export const blogStatusSchema = z.enum([
   "draft",
