@@ -385,6 +385,106 @@ export async function uploadBlogImage(file: File): Promise<UploadResult> {
   };
 }
 
+/* —— Careers hiring notice ————————————————————————————————————————— */
+
+const HIRING_NOTICE_FOLDER = "scrapwala/hiring-notice";
+const HIRING_NOTICE_MAX_BYTES = 5 * 1024 * 1024;
+
+export const HIRING_NOTICE_ACCEPT_LABEL = "JPEG, PNG or WebP";
+
+export function hiringNoticeImageLimits(): {
+  maxBytes: number;
+  mimeTypes: string[];
+} {
+  return {
+    maxBytes: HIRING_NOTICE_MAX_BYTES,
+    mimeTypes: [...BLOG_MIME_TYPES],
+  };
+}
+
+/** Upload the single careers-page notice image as a public Cloudinary asset. */
+export async function uploadHiringNoticeImage(file: File): Promise<UploadResult> {
+  if (file.size <= 0) {
+    throw new ApiError(400, "Please choose an image file", "INVALID_FILE");
+  }
+  if (file.size > HIRING_NOTICE_MAX_BYTES) {
+    throw new ApiError(
+      400,
+      "Notice image must be smaller than 5 MB",
+      "FILE_TOO_LARGE"
+    );
+  }
+  if (!BLOG_MIME_TYPES.includes(file.type)) {
+    throw new ApiError(
+      400,
+      `Only ${HIRING_NOTICE_ACCEPT_LABEL} images are allowed`,
+      "INVALID_FILE_TYPE"
+    );
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const sniffed = sniffPhotoType(bytes);
+  if (!sniffed || sniffed !== file.type) {
+    throw new ApiError(
+      400,
+      "File content does not match a valid JPEG, PNG or WebP image",
+      "INVALID_FILE_TYPE"
+    );
+  }
+
+  const config = getConfig();
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signature = sign(
+    `folder=${HIRING_NOTICE_FOLDER}&timestamp=${timestamp}`,
+    config.apiSecret
+  );
+
+  const extension =
+    sniffed === "image/jpeg" ? "jpg" : sniffed === "image/png" ? "png" : "webp";
+  const form = new FormData();
+  form.append(
+    "file",
+    new Blob([bytes], { type: sniffed }),
+    `hiring-notice-${timestamp}.${extension}`
+  );
+  form.append("api_key", config.apiKey);
+  form.append("timestamp", String(timestamp));
+  form.append("folder", HIRING_NOTICE_FOLDER);
+  form.append("signature", signature);
+
+  let json: { secure_url?: string; public_id?: string; error?: { message?: string } } | null =
+    null;
+
+  try {
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/${config.cloudName}/image/upload`,
+      { method: "POST", body: form }
+    );
+    json = await res.json().catch(() => null);
+
+    if (!res.ok || !json?.secure_url || !json?.public_id) {
+      const reason = json?.error?.message ? ` (${json.error.message})` : "";
+      throw new ApiError(
+        502,
+        `Failed to upload the notice image to Cloudinary${reason}`,
+        "CLOUDINARY_UPLOAD_FAILED"
+      );
+    }
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      502,
+      "Could not reach Cloudinary to upload the notice image",
+      "CLOUDINARY_UNREACHABLE"
+    );
+  }
+
+  return {
+    imageUrl: json.secure_url,
+    cloudinaryPublicId: json.public_id,
+  };
+}
+
 /**
  * Best-effort cleanup of a replaced/removed Cloudinary asset.
  * Never throws: image lifecycle must not block database operations.
@@ -420,6 +520,7 @@ const cloudinaryService = {
   uploadSvg,
   uploadPickupPhoto,
   uploadBlogImage,
+  uploadHiringNoticeImage,
   destroyAsset,
   assertValidSvg,
 };

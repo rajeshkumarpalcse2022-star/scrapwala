@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Clock, Mail, MessageCircle, Phone } from "lucide-react";
+import { Clock, Facebook, Instagram, Linkedin, Mail, MessageCircle, Phone } from "lucide-react";
 import Container from "@/components/common/Container";
 import Logo from "@/components/common/Logo";
 import { legalDocs } from "@/components/legal/LegalPage";
@@ -10,6 +10,24 @@ import {
   SUPPORT_PHONE_TEL,
   getWhatsAppLink,
 } from "@/lib/constants/site";
+
+const socialLinks = [
+  {
+    label: "LinkedIn",
+    href: "https://www.linkedin.com/in/scrapi-in-522494448/",
+    Icon: Linkedin,
+  },
+  {
+    label: "Instagram",
+    href: "https://www.instagram.com/scrapi.in/",
+    Icon: Instagram,
+  },
+  {
+    label: "Facebook",
+    href: "https://www.facebook.com/profile.php?id=61595829340693",
+    Icon: Facebook,
+  },
+];
 
 const footerLinks = {
   navigation: [
@@ -90,16 +108,37 @@ export default function Footer() {
                 WhatsApp Us
               </a>
             </div>
+
+            <div className="mt-6">
+              <p className="text-xs font-semibold uppercase tracking-wider text-foreground">
+                Follow Us
+              </p>
+              <ul className="mt-3 flex items-center gap-3">
+                {socialLinks.map(({ label, href, Icon }) => (
+                  <li key={label}>
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Follow Scrapi on ${label}`}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-primary/20 bg-card text-primary transition-colors hover:border-primary hover:bg-primary hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                    >
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
 
           {/* Navigation */}
-          <nav aria-label="Footer navigation" className="lg:col-span-2">
+          <nav aria-label="Footer navigation" className="lg:col-span-3">
             <ColumnHeading>Navigation</ColumnHeading>
             <FooterList items={footerLinks.navigation} />
           </nav>
 
           {/* Customer */}
-          <nav aria-label="Customer links" className="lg:col-span-2">
+          <nav aria-label="Customer links" className="lg:col-span-3">
             <ColumnHeading>Customer</ColumnHeading>
             <FooterList items={footerLinks.customer} />
           </nav>
@@ -136,26 +175,6 @@ export default function Footer() {
               </li>
             </ul>
           </div>
-
-          {/* Legal */}
-          <nav aria-label="Legal links" className="sm:col-span-2 lg:col-span-2">
-            <ColumnHeading>Legal</ColumnHeading>
-            <ul className="mt-4 space-y-2.5">
-              {legalDocs.map((doc) => (
-                <li key={doc.id}>
-                  <Link
-                    href={doc.href}
-                    className="text-sm text-muted transition-colors hover:text-primary focus-visible:text-primary focus-visible:outline-none"
-                  >
-                    {doc.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-5 text-xs leading-relaxed text-muted/80">
-              By using Scrapi you agree to our published policies.
-            </p>
-          </nav>
         </div>
 
         {/* Bottom bar */}
