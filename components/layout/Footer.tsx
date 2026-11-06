@@ -5,29 +5,23 @@ import Logo from "@/components/common/Logo";
 import { legalDocs } from "@/components/legal/LegalPage";
 import {
   SITE_URL,
+  SOCIAL_PROFILES,
   SUPPORT_EMAIL,
   SUPPORT_PHONE_DISPLAY,
   SUPPORT_PHONE_TEL,
   getWhatsAppLink,
 } from "@/lib/constants/site";
 
-const socialLinks = [
-  {
-    label: "LinkedIn",
-    href: "https://www.linkedin.com/in/scrapi-in-522494448/",
-    Icon: Linkedin,
-  },
-  {
-    label: "Instagram",
-    href: "https://www.instagram.com/scrapi.in/",
-    Icon: Instagram,
-  },
-  {
-    label: "Facebook",
-    href: "https://www.facebook.com/profile.php?id=61595829340693",
-    Icon: Facebook,
-  },
-];
+const SOCIAL_ICONS = {
+  LinkedIn: Linkedin,
+  Instagram: Instagram,
+  Facebook: Facebook,
+} as const;
+
+const socialLinks = SOCIAL_PROFILES.map((profile) => ({
+  ...profile,
+  Icon: SOCIAL_ICONS[profile.label],
+}));
 
 const footerLinks = {
   navigation: [

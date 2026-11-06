@@ -1,17 +1,31 @@
 import type { Metadata } from "next";
 import LegalPage from "@/components/legal/LegalPage";
+import JsonLd from "@/components/seo/JsonLd";
 import { SITE_URL, SUPPORT_EMAIL, SUPPORT_PHONE_DISPLAY } from "@/lib/constants/site";
+import { breadcrumbJsonLd, buildMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+const description =
+  "Learn how Scrapi handles pickup cancellations, failed or duplicate payments, refund eligibility and refund processing timelines.";
+
+export const metadata: Metadata = buildMetadata({
   title: "Cancellation & Refund Policy",
-  description:
-    "Learn how Scrapi handles pickup cancellations, failed or duplicate payments, refund eligibility and refund processing timelines.",
-  alternates: { canonical: `${SITE_URL}/cancellation-refund` },
-};
+  description,
+  path: "/cancellation-refund",
+});
 
 export default function CancellationRefundPage() {
   return (
-    <LegalPage
+    <>
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "Home", path: "/" },
+          {
+            name: "Cancellation & Refund Policy",
+            path: "/cancellation-refund",
+          },
+        ])}
+      />
+      <LegalPage
       id="cancellation-refund"
       title="Cancellation & Refund Policy"
       summary="This policy explains how pickup cancellations, payment failures, and refund requests are handled on Scrapi."
@@ -106,6 +120,7 @@ export default function CancellationRefundPage() {
           <strong>Phone:</strong> {SUPPORT_PHONE_DISPLAY}
         </li>
       </ul>
-    </LegalPage>
+      </LegalPage>
+    </>
   );
 }

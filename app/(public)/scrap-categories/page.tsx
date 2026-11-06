@@ -13,18 +13,34 @@ import {
   Calendar,
 } from "lucide-react";
 import Container from "@/components/common/Container";
+import JsonLd from "@/components/seo/JsonLd";
 import {
   listPublicCategories,
   listPublicSubcategories,
 } from "@/services/category";
+import {
+  breadcrumbJsonLd,
+  buildMetadata,
+  webPageJsonLd,
+} from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Scrap Categories",
-  description:
-    "Explore the types of scrap materials accepted by Scrapi — paper, plastic, metals, e-waste, appliances, and more.",
-};
+const description =
+  "Explore scrap materials accepted by Scrapi, understand available categories, and request a doorstep scrap pickup.";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Scrap Categories – Explore Materials You Can Sell | Scrapi",
+  absoluteTitle: true,
+  description,
+  path: "/scrap-categories",
+  keywords: [
+    "scrap categories",
+    "sell scrap online",
+    "recyclable materials",
+    "scrap pickup service",
+  ],
+});
 
 const ICONS: { test: RegExp; icon: React.ElementType }[] = [
   { test: /paper|book|news|cardboard/i, icon: FileText },
@@ -52,6 +68,19 @@ export default async function ScrapCategoriesPage() {
 
   return (
     <>
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "Home", path: "/" },
+          { name: "Scrap Categories", path: "/scrap-categories" },
+        ])}
+      />
+      <JsonLd
+        data={webPageJsonLd({
+          name: "Scrap Categories",
+          description,
+          path: "/scrap-categories",
+        })}
+      />
       <section className="bg-primary-light py-16">
         <Container>
           <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
@@ -117,6 +146,40 @@ export default async function ScrapCategoriesPage() {
               <Calendar className="h-5 w-5" aria-hidden="true" />
               Schedule a Pickup
             </Link>
+          </div>
+
+          <div className="mx-auto mt-16 max-w-3xl rounded-2xl border border-border bg-card p-6 sm:p-8">
+            <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+              Sell scrap online with doorstep pickup
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-muted sm:text-base">
+              Scrapi helps you sell scrap online without travelling to a
+              kabadiwala. Browse the categories above, check current{" "}
+              <Link
+                href="/scrap-rates"
+                className="font-semibold text-primary hover:underline"
+              >
+                scrap rates
+              </Link>
+              , and schedule a doorstep scrap pickup at a time that suits you.
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-muted sm:text-base">
+              Want to understand what happens after booking? Read the{" "}
+              <Link
+                href="/how-it-works"
+                className="font-semibold text-primary hover:underline"
+              >
+                step-by-step Scrapi pickup process
+              </Link>{" "}
+              or explore our{" "}
+              <Link
+                href="/blogs"
+                className="font-semibold text-primary hover:underline"
+              >
+                recycling guides
+              </Link>{" "}
+              for help preparing your materials.
+            </p>
           </div>
         </Container>
       </section>

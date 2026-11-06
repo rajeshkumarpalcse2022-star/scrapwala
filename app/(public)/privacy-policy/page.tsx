@@ -1,17 +1,28 @@
 import type { Metadata } from "next";
 import LegalPage from "@/components/legal/LegalPage";
+import JsonLd from "@/components/seo/JsonLd";
 import { SITE_URL, SUPPORT_EMAIL, SUPPORT_PHONE_DISPLAY } from "@/lib/constants/site";
+import { breadcrumbJsonLd, buildMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+const description =
+  "Read how Scrapi collects, uses, stores and protects your personal information when you use our website and doorstep scrap pickup services.";
+
+export const metadata: Metadata = buildMetadata({
   title: "Privacy Policy",
-  description:
-    "Read how Scrapi collects, uses, stores and protects your personal information when you use our website and doorstep scrap pickup services.",
-  alternates: { canonical: `${SITE_URL}/privacy-policy` },
-};
+  description,
+  path: "/privacy-policy",
+});
 
 export default function PrivacyPolicyPage() {
   return (
-    <LegalPage
+    <>
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "Home", path: "/" },
+          { name: "Privacy Policy", path: "/privacy-policy" },
+        ])}
+      />
+      <LegalPage
       id="privacy-policy"
       title="Privacy Policy"
       summary="Scrapi (“we,” “our,” or “us”) respects your privacy and is committed to protecting the personal information you share with us through our website and services."
@@ -140,6 +151,7 @@ export default function PrivacyPolicyPage() {
           <strong>Phone:</strong> {SUPPORT_PHONE_DISPLAY}
         </li>
       </ul>
-    </LegalPage>
+      </LegalPage>
+    </>
   );
 }

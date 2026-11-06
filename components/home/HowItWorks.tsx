@@ -1,4 +1,5 @@
-import { ListChecks, CalendarCheck, Truck, Banknote } from "lucide-react";
+import Link from "next/link";
+import { ListChecks, CalendarCheck, Truck, Banknote, ArrowRight } from "lucide-react";
 import Container from "@/components/common/Container";
 
 const steps = [
@@ -83,6 +84,16 @@ export default function HowItWorks() {
               </div>
             );
           })}
+        </div>
+
+        <div className="mt-10 text-center sm:mt-14">
+          <Link
+            href="/how-it-works"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-primary transition-colors hover:text-primary-dark"
+          >
+            See the full doorstep pickup process
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
         </div>
       </Container>
     </section>

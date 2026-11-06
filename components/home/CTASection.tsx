@@ -25,19 +25,27 @@ export default function CTASection() {
               alt="Recyclables we pick — Paper, Plastic, Clothes, Metal, E-Waste and more recyclable items"
               width={772}
               height={323}
-              priority
+              sizes="(max-width: 750px) 100vw, 750px"
               className="h-auto w-full"
             />
           </div>
 
-          {/* CTA Button */}
-          <Link
-            href="/scrap-rates"
-            className="mt-6 inline-flex items-center gap-2 rounded-full bg-foreground px-7 py-3 text-sm font-semibold text-white transition-colors hover:bg-foreground/90 sm:mt-8 sm:px-8 sm:py-3.5 sm:text-base"
-          >
-            See Full Price List
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
+          {/* CTA Buttons */}
+          <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:mt-8 sm:flex-row sm:gap-4">
+            <Link
+              href="/scrap-rates"
+              className="inline-flex items-center gap-2 rounded-full bg-foreground px-7 py-3 text-sm font-semibold text-white transition-colors hover:bg-foreground/90 sm:px-8 sm:py-3.5 sm:text-base"
+            >
+              See Full Price List
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+            <Link
+              href="/scrap-categories"
+              className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-card px-7 py-3 text-sm font-semibold text-primary transition-colors hover:border-primary hover:bg-primary-light sm:px-8 sm:py-3.5 sm:text-base"
+            >
+              Browse Scrap Categories
+            </Link>
+          </div>
         </div>
       </Container>
     </section>
