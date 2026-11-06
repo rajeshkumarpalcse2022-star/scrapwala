@@ -13,6 +13,7 @@ export default function WeighingAccuracy() {
                 src="/images/scrapuncle-weighing.png"
                 alt="Scrapi smart digital weighing scale for accurate scrap weighing"
                 fill
+                priority
                 sizes="(max-width: 640px) 240px, (max-width: 1024px) 320px, 380px"
                 className="object-contain"
               />

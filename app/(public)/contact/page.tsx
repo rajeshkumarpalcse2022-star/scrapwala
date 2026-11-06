@@ -2,41 +2,17 @@ import type { Metadata } from "next";
 import { Mail, Phone, MapPin } from "lucide-react";
 import Container from "@/components/common/Container";
 import ContactForm from "@/components/common/ContactForm";
-import JsonLd from "@/components/seo/JsonLd";
 import { SUPPORT_EMAIL, SUPPORT_PHONE_DISPLAY, SUPPORT_PHONE_TEL } from "@/lib/constants/site";
-import {
-  breadcrumbJsonLd,
-  buildMetadata,
-  webPageJsonLd,
-} from "@/lib/seo";
 
-const description =
-  "Contact Scrapi for scrap pickup enquiries, collection assistance, and information about our services.";
-
-export const metadata: Metadata = buildMetadata({
-  title: "Contact Scrapi – Scrap Pickup and Collection Support",
-  absoluteTitle: true,
-  description,
-  path: "/contact",
-  keywords: ["scrap pickup service", "scrap management company"],
-});
+export const metadata: Metadata = {
+  title: "Contact Us",
+  description:
+    "Get in touch with Scrapi for any questions about scrap pickup, rates, or recycling.",
+};
 
 export default function ContactPage() {
   return (
     <>
-      <JsonLd
-        data={breadcrumbJsonLd([
-          { name: "Home", path: "/" },
-          { name: "Contact", path: "/contact" },
-        ])}
-      />
-      <JsonLd
-        data={webPageJsonLd({
-          name: "Contact Scrapi",
-          description,
-          path: "/contact",
-        })}
-      />
       <section className="bg-primary-light py-16">
         <Container>
           <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
@@ -61,9 +37,9 @@ export default function ContactPage() {
             <div className="lg:col-span-2">
               <div className="space-y-6">
                 <div className="rounded-xl border border-border bg-card p-6">
-                  <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground">
                     Contact Information
-                  </h2>
+                  </h3>
                   <ul className="mt-4 space-y-4">
                     <li className="flex items-start gap-3 text-sm text-muted">
                       <Mail className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
@@ -85,9 +61,9 @@ export default function ContactPage() {
                 </div>
 
                 <div className="rounded-xl border border-border bg-card p-6">
-                  <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground">
                     Business Hours
-                  </h2>
+                  </h3>
                   <ul className="mt-4 space-y-2 text-sm text-muted">
                     <li>Monday &ndash; Saturday: 9:00 AM &ndash; 6:00 PM</li>
                     <li>Sunday: Closed</li>

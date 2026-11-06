@@ -1,12 +1,5 @@
 import Link from "next/link";
-import type { Metadata } from "next";
 import Logo from "@/components/common/Logo";
-
-export const metadata: Metadata = {
-  title: "Account",
-  description: "Sign in to or create your Scrapi account.",
-  robots: { index: false, follow: false },
-};
 
 export default function AuthLayout({
   children,

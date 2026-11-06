@@ -19,23 +19,18 @@ import BlogCard from "@/components/blog/BlogCard";
 import BlogShareButtons from "@/components/blog/BlogShareButtons";
 import BlogContentRenderer from "@/components/blog/BlogContentRenderer";
 import ArticleReadingProgress from "@/components/blog/ArticleReadingProgress";
-import JsonLd from "@/components/seo/JsonLd";
 import { extractHeadings } from "@/lib/utils/blog-content";
 import { formatDateFull } from "@/lib/utils/pickup-format";
 import {
   getPublishedPostBySlug,
   getRelatedPublishedPosts,
 } from "@/services/blog";
-import {
-  absoluteUrl,
-  breadcrumbJsonLd,
-  SITE_URL,
-} from "@/lib/seo";
-import { DEFAULT_OG_IMAGE, SITE_NAME } from "@/lib/constants/site";
 
 // Revalidate every 5 minutes; admin mutations purge the cache immediately
 // via revalidateBlogPages(). Published state itself stays DB-driven.
 export const revalidate = 300;
+
+const SITE_URL = "https://scrapi.in";
 
 type Params = Promise<{ slug: string }>;
 
@@ -50,50 +45,31 @@ export async function generateMetadata({
   // returning metadata instead would render not-found content with a 200.
   if (!post) notFound();
 
-  const url = absoluteUrl(`/blogs/${post.slug}`);
-  const customImage = post.socialImage?.url ?? post.coverImage?.url;
-  const imageAlt =
-    post.socialImage?.alt ?? post.coverImage?.alt ?? post.title;
-  const images = customImage
-    ? [{ url: customImage, alt: imageAlt }]
-    : [{ ...DEFAULT_OG_IMAGE }];
-  const baseTitle = (post.seoMetaTitle || post.title).trim();
-  const metaTitle = /scrapi/i.test(baseTitle)
-    ? baseTitle
-    : `${baseTitle} | Scrapi`;
+  const url = `${SITE_URL}/blogs/${post.slug}`;
+  const image = post.socialImage?.url ?? post.coverImage?.url;
+  const imageAlt = post.socialImage?.alt ?? post.coverImage?.alt ?? post.title;
 
   return {
-    title: { absolute: metaTitle },
+    title: post.seoMetaTitle || `${post.title} | Scrapi Blog`,
     description: post.seoMetaDescription || post.excerpt,
     alternates: { canonical: url },
-    robots: {
-      index: true,
-      follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-        "max-image-preview": "large",
-        "max-snippet": -1,
-      },
-    },
+    robots: { index: true, follow: true },
     openGraph: {
       type: "article",
       url,
-      title: metaTitle,
+      title: post.seoMetaTitle || post.title,
       description: post.seoMetaDescription || post.excerpt,
-      siteName: SITE_NAME,
-      locale: "en_IN",
       publishedTime: post.publishedAt,
       modifiedTime: post.updatedAt,
       authors: post.authorName ? [post.authorName] : undefined,
       tags: post.category ? [post.category.name] : undefined,
-      images,
+      images: image ? [{ url: image, alt: imageAlt }] : undefined,
     },
     twitter: {
-      card: "summary_large_image",
-      title: metaTitle,
+      card: image ? "summary_large_image" : "summary",
+      title: post.seoMetaTitle || post.title,
       description: post.seoMetaDescription || post.excerpt,
-      images: images.map((image) => image.url),
+      images: image ? [image] : undefined,
     },
   };
 }
@@ -105,7 +81,7 @@ export default async function BlogArticlePage({ params }: { params: Params }) {
   if (!post) notFound();
 
   const related = await getRelatedPublishedPosts(post, 3);
-  const postUrl = absoluteUrl(`/blogs/${post.slug}`);
+  const absoluteUrl = `${SITE_URL}/blogs/${post.slug}`;
   const cover = post.coverImage?.url ?? post.socialImage?.url;
   const coverAlt = post.coverImage?.alt ?? post.socialImage?.alt ?? post.title;
   const authorInitial = (post.authorName?.trim()?.charAt(0) || "S").toUpperCase();
@@ -114,50 +90,29 @@ export default async function BlogArticlePage({ params }: { params: Params }) {
     (heading) => heading.level === 2 || heading.level === 3,
   );
 
-  const articleJsonLd = {
+  const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "BlogPosting",
-    "@id": `${postUrl}#article`,
+    "@type": "Article",
     headline: post.title,
     description: post.excerpt,
-    url: postUrl,
-    mainEntityOfPage: { "@type": "WebPage", "@id": postUrl },
     datePublished: post.publishedAt,
-    dateModified: post.updatedAt ?? post.publishedAt,
-    author: {
-      "@type": "Person",
-      name: post.authorName || "Scrapi Team",
-    },
-    publisher: {
-      "@type": "Organization",
-      "@id": `${SITE_URL}/#organization`,
-      name: SITE_NAME,
-      logo: {
-        "@type": "ImageObject",
-        url: absoluteUrl("/images/scrapi-logo.png"),
-        width: 816,
-        height: 306,
-      },
-    },
-    image: cover
-      ? [cover]
-      : [absoluteUrl(DEFAULT_OG_IMAGE.url)],
+    dateModified: post.updatedAt,
+    author: { "@type": "Person", name: post.authorName },
+    publisher: { "@type": "Organization", name: "Scrapi" },
+    mainEntityOfPage: absoluteUrl,
+    image: cover ? [cover] : undefined,
     articleSection: post.category?.name,
-    inLanguage: "en-IN",
-    isPartOf: { "@id": `${SITE_URL}/#website` },
   };
-
-  const breadcrumbSchema = breadcrumbJsonLd([
-    { name: "Home", path: "/" },
-    { name: "Blog", path: "/blogs" },
-    { name: post.title, path: `/blogs/${post.slug}` },
-  ]);
 
   return (
     <main>
       <ArticleReadingProgress />
-      <JsonLd data={articleJsonLd} />
-      <JsonLd data={breadcrumbSchema} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
 
       <article>
         <section className="relative overflow-hidden border-b border-border bg-gradient-to-b from-primary-light/80 via-background to-background">
@@ -304,34 +259,10 @@ export default async function BlogArticlePage({ params }: { params: Params }) {
                 </Link>
               </div>
 
-              <nav
-                aria-label="Explore Scrapi services"
-                className="mt-6 grid gap-3 sm:grid-cols-3"
-              >
-                <Link
-                  href="/scrap-categories"
-                  className="rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground transition hover:border-primary/40 hover:text-primary"
-                >
-                  Materials we accept
-                </Link>
-                <Link
-                  href="/scrap-rates"
-                  className="rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground transition hover:border-primary/40 hover:text-primary"
-                >
-                  Check scrap rates
-                </Link>
-                <Link
-                  href="/how-it-works"
-                  className="rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground transition hover:border-primary/40 hover:text-primary"
-                >
-                  How pickup works
-                </Link>
-              </nav>
-
               <div className="mt-8">
                 <BlogShareButtons
                   title={post.title}
-                  absoluteUrl={postUrl}
+                  absoluteUrl={absoluteUrl}
                 />
               </div>
 

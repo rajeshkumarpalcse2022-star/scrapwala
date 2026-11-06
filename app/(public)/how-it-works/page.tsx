@@ -14,27 +14,12 @@ import {
   Calendar,
 } from "lucide-react";
 import Container from "@/components/common/Container";
-import JsonLd from "@/components/seo/JsonLd";
-import {
-  breadcrumbJsonLd,
-  buildMetadata,
-  webPageJsonLd,
-} from "@/lib/seo";
 
-const description =
-  "Discover how Scrapi makes scrap collection simple. Select materials, schedule a pickup, and let our team handle the collection process.";
-
-export const metadata: Metadata = buildMetadata({
-  title: "How Scrapi Works – Simple Doorstep Scrap Pickup Process",
-  absoluteTitle: true,
-  description,
-  path: "/how-it-works",
-  keywords: [
-    "doorstep scrap pickup",
-    "scrap pickup service",
-    "book scrap pickup",
-  ],
-});
+export const metadata: Metadata = {
+  title: "How It Works",
+  description:
+    "Discover how Scrapi makes scrap pickup simple — schedule, collect, weigh, and get paid in 4 easy steps.",
+};
 
 const steps = [
   {
@@ -102,19 +87,6 @@ const steps = [
 export default function HowItWorksPage() {
   return (
     <>
-      <JsonLd
-        data={breadcrumbJsonLd([
-          { name: "Home", path: "/" },
-          { name: "How It Works", path: "/how-it-works" },
-        ])}
-      />
-      <JsonLd
-        data={webPageJsonLd({
-          name: "How Scrapi Works",
-          description,
-          path: "/how-it-works",
-        })}
-      />
       <section className="bg-primary-light py-16">
         <Container>
           <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
@@ -130,9 +102,6 @@ export default function HowItWorksPage() {
       <section className="py-16">
         <Container>
           <div className="mx-auto max-w-3xl">
-            <h2 className="mb-8 text-center text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              The doorstep scrap pickup process
-            </h2>
             <div className="relative space-y-1">
               {/* Vertical line */}
               <div
@@ -150,7 +119,7 @@ export default function HowItWorksPage() {
                       <span className="text-xs font-bold uppercase tracking-widest text-primary">
                         Step {step.number}
                       </span>
-                      <h3 className="mt-1 text-lg font-semibold text-foreground">{step.title}</h3>
+                      <h2 className="mt-1 text-lg font-semibold text-foreground">{step.title}</h2>
                       <p className="mt-1 text-sm leading-relaxed text-muted">{step.description}</p>
                     </div>
                   </div>
@@ -168,24 +137,6 @@ export default function HowItWorksPage() {
               Schedule a Pickup
             </Link>
           </div>
-
-          <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-relaxed text-muted">
-            Before booking, you can review the{" "}
-            <Link
-              href="/scrap-categories"
-              className="font-semibold text-primary hover:underline"
-            >
-              scrap categories we accept
-            </Link>{" "}
-            and check the latest{" "}
-            <Link
-              href="/scrap-rates"
-              className="font-semibold text-primary hover:underline"
-            >
-              indicative scrap rates
-            </Link>
-            .
-          </p>
         </Container>
       </section>
     </>

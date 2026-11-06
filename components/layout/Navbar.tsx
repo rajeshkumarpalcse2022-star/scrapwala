@@ -17,9 +17,7 @@ interface NavLink {
 const baseNavLinks: NavLink[] = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About" },
-  { href: "/scrap-categories", label: "Scrap Categories" },
   { href: "/scrap-rates", label: "Scrap Rates" },
-  { href: "/how-it-works", label: "How It Works" },
   { href: "/blogs", label: "Blog" },
   { href: "/terms", label: "Terms" },
 ];

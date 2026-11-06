@@ -1,76 +1,74 @@
 import type { MetadataRoute } from "next";
-import { SITE_URL } from "@/lib/constants/site";
-import { SITE_CONTENT_UPDATED } from "@/lib/seo";
 import { listPublishedPosts } from "@/services/blog";
 
 // Refresh at least hourly; admin mutations also purge /sitemap.xml directly.
 export const revalidate = 3600;
 
 /**
- * Canonical public routes + every eligible published blog article (DB-driven).
- * Admin, collector, auth, booking and private account pages are intentionally
- * excluded, as are drafts, scheduled (not yet due) and archived articles.
+ * Static public routes + every published blog article (DB-driven).
  * Falls back to static routes only when the database is unreachable.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const baseUrl = "https://scrapi.in";
+
   const staticRoutes: MetadataRoute.Sitemap = [
     {
-      url: SITE_URL,
-      lastModified: SITE_CONTENT_UPDATED,
+      url: baseUrl,
+      lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 1,
     },
     {
-      url: `${SITE_URL}/about`,
-      lastModified: SITE_CONTENT_UPDATED,
+      url: `${baseUrl}/about`,
+      lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.8,
     },
     {
-      url: `${SITE_URL}/scrap-categories`,
-      lastModified: SITE_CONTENT_UPDATED,
+      url: `${baseUrl}/scrap-categories`,
+      lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.8,
     },
     {
-      url: `${SITE_URL}/scrap-rates`,
-      lastModified: SITE_CONTENT_UPDATED,
+      url: `${baseUrl}/scrap-rates`,
+      lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.9,
     },
     {
-      url: `${SITE_URL}/how-it-works`,
-      lastModified: SITE_CONTENT_UPDATED,
+      url: `${baseUrl}/how-it-works`,
+      lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.7,
     },
     {
-      url: `${SITE_URL}/contact`,
-      lastModified: SITE_CONTENT_UPDATED,
+      url: `${baseUrl}/contact`,
+      lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.6,
     },
     {
-      url: `${SITE_URL}/blogs`,
-      lastModified: SITE_CONTENT_UPDATED,
+      url: `${baseUrl}/blogs`,
+      lastModified: new Date(),
       changeFrequency: "weekly",
-      priority: 0.6,
+      priority: 0.5,
     },
     {
-      url: `${SITE_URL}/privacy-policy`,
-      lastModified: SITE_CONTENT_UPDATED,
+      url: `${baseUrl}/privacy-policy`,
+      lastModified: new Date(),
       changeFrequency: "yearly",
       priority: 0.3,
     },
     {
-      url: `${SITE_URL}/terms`,
-      lastModified: SITE_CONTENT_UPDATED,
+      url: `${baseUrl}/terms`,
+      lastModified: new Date(),
       changeFrequency: "yearly",
       priority: 0.3,
     },
     {
-      url: `${SITE_URL}/cancellation-refund`,
-      lastModified: SITE_CONTENT_UPDATED,
+      url: `${baseUrl}/cancellation-refund`,
+      lastModified: new Date(),
       changeFrequency: "yearly",
       priority: 0.3,
     },
@@ -87,7 +85,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       totalPages = result.totalPages;
       for (const post of result.posts) {
         blogRoutes.push({
-          url: `${SITE_URL}/blogs/${post.slug}`,
+          url: `${baseUrl}/blogs/${post.slug}`,
           lastModified: new Date(post.publishedAt),
           changeFrequency: "monthly",
           priority: 0.6,

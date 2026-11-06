@@ -17,7 +17,6 @@ import {
 import Container from "@/components/common/Container";
 import RemoteImage from "@/components/common/RemoteImage";
 import BlogCard from "@/components/blog/BlogCard";
-import JsonLd from "@/components/seo/JsonLd";
 import { formatDateShort } from "@/lib/utils/pickup-format";
 import { publicBlogQuerySchema } from "@/lib/validations/blog";
 import {
@@ -26,10 +25,10 @@ import {
   listPublicBlogCategories,
   type PublicBlogCardDTO,
 } from "@/services/blog";
-import { breadcrumbJsonLd, buildMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
+const SITE_URL = "https://scrapi.in";
 const PAGE_SIZE = 9;
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -58,19 +57,15 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const raw = await searchParams;
   const q = first(raw.q)?.trim();
-  const isSearch = Boolean(q);
 
-  return buildMetadata({
-    title: isSearch
-      ? `Search results for “${q}”`
-      : "Scrapi Blog – Scrap Recycling, Sustainability & Useful Tips",
-    absoluteTitle: true,
+  return {
+    title: q ? `Search: ${q} | Scrapi Blog` : "Blog | Scrapi",
     description:
-      "Explore helpful articles about scrap recycling, waste management, sustainability, scrap materials, and responsible disposal.",
-    path: "/blogs",
-    keywords: ["scrap recycling", "recycling tips", "sell scrap online"],
-    noIndex: isSearch,
-  });
+      "Practical guides on scrap recycling, sustainable living and getting the best value for your recyclables — from the Scrapi team.",
+    alternates: {
+      canonical: `${SITE_URL}/blogs`,
+    },
+  };
 }
 
 export default async function BlogListingPage({
@@ -167,12 +162,6 @@ export default async function BlogListingPage({
 
   return (
     <main>
-      <JsonLd
-        data={breadcrumbJsonLd([
-          { name: "Home", path: "/" },
-          { name: "Blog", path: "/blogs" },
-        ])}
-      />
       <section className="relative overflow-hidden bg-gradient-to-br from-primary-dark via-primary to-secondary">
         <div
           className="pointer-events-none absolute inset-0 opacity-25"

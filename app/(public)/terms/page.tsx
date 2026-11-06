@@ -1,28 +1,17 @@
 import type { Metadata } from "next";
 import LegalPage from "@/components/legal/LegalPage";
-import JsonLd from "@/components/seo/JsonLd";
 import { SITE_URL, SUPPORT_EMAIL, SUPPORT_PHONE_DISPLAY } from "@/lib/constants/site";
-import { breadcrumbJsonLd, buildMetadata } from "@/lib/seo";
 
-const description =
-  "Read the terms and conditions that apply when you use the Scrapi website and book a doorstep scrap pickup.";
-
-export const metadata: Metadata = buildMetadata({
+export const metadata: Metadata = {
   title: "Terms & Conditions",
-  description,
-  path: "/terms",
-});
+  description:
+    "Read the terms and conditions that apply when you use the Scrapi website and book a doorstep scrap pickup.",
+  alternates: { canonical: `${SITE_URL}/terms` },
+};
 
 export default function TermsPage() {
   return (
-    <>
-      <JsonLd
-        data={breadcrumbJsonLd([
-          { name: "Home", path: "/" },
-          { name: "Terms & Conditions", path: "/terms" },
-        ])}
-      />
-      <LegalPage
+    <LegalPage
       id="terms"
       title="Terms & Conditions"
       summary="Welcome to Scrapi. By accessing our website or using our scrap pickup services, you agree to these Terms & Conditions. Please read them carefully before placing a pickup request."
@@ -170,7 +159,6 @@ export default function TermsPage() {
           <strong>Phone:</strong> {SUPPORT_PHONE_DISPLAY}
         </li>
       </ul>
-      </LegalPage>
-    </>
+    </LegalPage>
   );
 }

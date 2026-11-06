@@ -18,10 +18,10 @@ export default function CircularJourney() {
       <div className="relative mt-8 w-full sm:mt-10">
         {/* Mobile: horizontal scroll so the wide infographic stays legible */}
         <div className="overflow-x-auto pb-2 [-webkit-overflow-scrolling:touch] lg:overflow-visible lg:pb-0">
-          <div className="relative min-w-[760px] sm:min-w-[900px] lg:min-w-0">
-            {/* Edge blending — left */}
+          <div className="relative min-w-[760px] px-4 sm:min-w-[900px] sm:px-6 lg:min-w-0 lg:px-0">
+                {/* Edge blending — left */}
             <div
-              className="pointer-events-none absolute inset-y-0 left-0 z-10 hidden w-6 sm:w-10 lg:block"
+              className="pointer-events-none absolute inset-y-0 left-0 z-10 w-6 sm:w-10"
               style={{
                 background: "linear-gradient(to right, var(--background, #eef7f0) 0%, transparent 100%)",
               }}
@@ -29,7 +29,7 @@ export default function CircularJourney() {
             />
             {/* Edge blending — right */}
             <div
-              className="pointer-events-none absolute inset-y-0 right-0 z-10 hidden w-10 sm:w-16 lg:block"
+              className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 sm:w-16"
               style={{
                 background: "linear-gradient(to left, var(--background, #eef7f0) 0%, transparent 100%)",
               }}
@@ -57,7 +57,7 @@ export default function CircularJourney() {
               alt="Scrapi circular journey — from doorstep pickup to collection point, partner recyclers, and recycled products resold"
               width={2172}
               height={724}
-              sizes="(max-width: 1024px) 760px, 100vw"
+              priority
               className="relative z-0 h-auto w-full"
             />
           </div>

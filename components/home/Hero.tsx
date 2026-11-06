@@ -22,14 +22,14 @@ export default function Hero() {
 
             {/* Headline */}
             <h1 className="text-[1.75rem] font-bold leading-[1.12] tracking-tight text-foreground min-[400px]:text-4xl sm:text-5xl lg:text-6xl">
-              Turn your scrap into value with{" "}
-              <span className="text-primary">doorstep scrap pickup</span>
+              Turn your scrap into value,{" "}
+              <span className="text-primary">right from your doorstep</span>
             </h1>
 
             {/* Supporting text */}
             <p className="mx-auto mt-5 max-w-lg text-base leading-relaxed text-muted sm:mt-6 sm:text-lg lg:mx-0">
-              Sell scrap online, schedule a doorstep scrap collection near you,
-              and get paid after collection.
+              Schedule a doorstep scrap pickup, choose a convenient time, and get
+              paid after collection.
             </p>
 
             {/* CTA pill container */}
