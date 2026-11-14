@@ -39,12 +39,31 @@ export interface HiringFieldConfig {
   placeholder?: string;
   helpText?: string;
   required: boolean;
+  /**
+   * Whether the field is included on the form. Admins toggle fields on/off in
+   * the builder; a toggled-off field keeps its full configuration but is
+   * excluded from the public form, validation and stored answers.
+   * Missing/undefined counts as enabled (backward compatible).
+   */
+  enabled?: boolean;
   options?: HiringFieldOption[];
   /** Numeric bounds for `number` fields. */
   min?: number;
   max?: number;
   /** Character budget for text-ish fields. */
   maxLength?: number;
+}
+
+/** A field is part of the form unless the admin explicitly toggled it off. */
+export function isFieldEnabled(field: Pick<HiringFieldConfig, "enabled">): boolean {
+  return field.enabled !== false;
+}
+
+/** Only the fields an admin left switched on. */
+export function enabledHiringFields(
+  fields: HiringFieldConfig[]
+): HiringFieldConfig[] {
+  return fields.filter(isFieldEnabled);
 }
 
 /** System-enforced upload limits. Admins may tighten, never exceed, these. */
@@ -72,22 +91,95 @@ export const UPLOAD_KIND_LIMITS = {
 /** Stable keys used by the default template shipped with every new form. */
 export const DEFAULT_FIELD_KEYS = {
   fullName: "full_name",
-  contactNumber: "contact_number",
-  whatsappNumber: "whatsapp_number",
-  email: "gmail_email",
-  education: "education",
+  fatherName: "father_name",
+  motherName: "mother_name",
   age: "age",
+  gender: "gender",
+  socialCategory: "social_category",
+  contactNumber: "contact_number",
+  email: "gmail_email",
+  idProof: "id_proof_number",
+  presentAddress: "present_address",
+  permanentAddress: "permanent_address",
+  landmark: "landmark",
+  district: "district",
+  state: "state",
+  city: "city",
+  pincode: "pincode",
+  nearestRailwayStation: "nearest_railway_station",
+  bloodGroup: "blood_group",
+  matricBoardName: "matric_board_name",
+  matricFullMarks: "matric_full_marks",
+  matricObtainedMarks: "matric_obtained_marks",
+  matricSchool: "matric_school_name_address",
+  hsBoardName: "hs_board_name",
+  hsFullMarks: "hs_full_marks",
+  hsObtainedMarks: "hs_obtained_marks",
+  hsSchool: "hs_school_name_address",
+  lastQualification: "last_qualification",
+  extraQualification: "extra_qualification",
+  familyMembers: "family_members",
+  familyIncome: "family_income",
+  experienceYears: "experience_years",
+  experienceWhere: "experience_where",
+  heardFrom: "heard_from",
+  declaration: "declaration",
   photo: "photo_upload",
   signature: "signature_upload",
   resume: "resume_upload",
+  marksheet: "marksheet_upload",
 } as const;
 
+const GENDER_OPTIONS: HiringFieldOption[] = [
+  { label: "Male", value: "male" },
+  { label: "Female", value: "female" },
+  { label: "Other", value: "other" },
+];
+
+const SOCIAL_CATEGORY_OPTIONS: HiringFieldOption[] = [
+  { label: "General", value: "general" },
+  { label: "OBC", value: "obc" },
+  { label: "SC", value: "sc" },
+  { label: "ST", value: "st" },
+  { label: "EWS", value: "ews" },
+];
+
+const BLOOD_GROUP_OPTIONS: HiringFieldOption[] = [
+  { label: "A+", value: "a_positive" },
+  { label: "A-", value: "a_negative" },
+  { label: "B+", value: "b_positive" },
+  { label: "B-", value: "b_negative" },
+  { label: "O+", value: "o_positive" },
+  { label: "O-", value: "o_negative" },
+  { label: "AB+", value: "ab_positive" },
+  { label: "AB-", value: "ab_negative" },
+];
+
+const HEARD_FROM_OPTIONS: HiringFieldOption[] = [
+  { label: "Website", value: "website" },
+  { label: "Social Media", value: "social_media" },
+  { label: "WhatsApp", value: "whatsapp" },
+  { label: "Newspaper", value: "newspaper" },
+  { label: "Friend / Relative", value: "friend_relative" },
+  { label: "Other", value: "other" },
+];
+
+const DECLARATION_OPTIONS: HiringFieldOption[] = [
+  {
+    label:
+      "I hereby declare that the information provided above is true and correct to the best of my knowledge.",
+    value: "declared_true",
+  },
+];
+
 /**
- * The nine default fields from the hiring requirements. New forms start from
- * this template; admins may then edit, reorder, add or remove fields.
+ * The full default template from the hiring requirements. New forms start
+ * with every field switched ON; admins then toggle fields on/off, mark which
+ * ones are mandatory, and can add any number of custom fields on top.
  */
 export function defaultHiringFields(): HiringFieldConfig[] {
   return [
+    // ── Personal details ──
     {
       key: DEFAULT_FIELD_KEYS.fullName,
       label: "Full Name",
@@ -97,45 +189,270 @@ export function defaultHiringFields(): HiringFieldConfig[] {
       maxLength: 120,
     },
     {
-      key: DEFAULT_FIELD_KEYS.contactNumber,
-      label: "Contact Number",
-      type: "phone",
-      placeholder: "10-digit mobile number",
-      required: true,
-    },
-    {
-      key: DEFAULT_FIELD_KEYS.whatsappNumber,
-      label: "WhatsApp Number",
-      type: "phone",
-      placeholder: "10-digit WhatsApp number",
-      helpText: "Optional — fill only if it differs from your contact number.",
-      required: false,
-    },
-    {
-      key: DEFAULT_FIELD_KEYS.email,
-      label: "Gmail / Email",
-      type: "email",
-      placeholder: "you@gmail.com",
-      required: true,
-    },
-    {
-      key: DEFAULT_FIELD_KEYS.education,
-      label: "Education",
+      key: DEFAULT_FIELD_KEYS.fatherName,
+      label: "Father's Name",
       type: "short_text",
-      placeholder: "e.g. B.A., Class 12, ITI",
-      required: true,
-      maxLength: 160,
+      placeholder: "Enter your father's name",
+      required: false,
+      maxLength: 120,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.motherName,
+      label: "Mother's Name",
+      type: "short_text",
+      placeholder: "Enter your mother's name",
+      required: false,
+      maxLength: 120,
     },
     {
       key: DEFAULT_FIELD_KEYS.age,
       label: "Age",
       type: "number",
       placeholder: "e.g. 24",
-      helpText: "Optional — must be between 18 and 70 if provided.",
       required: false,
-      min: 18,
-      max: 70,
     },
+    {
+      key: DEFAULT_FIELD_KEYS.gender,
+      label: "Gender",
+      type: "select",
+      options: GENDER_OPTIONS,
+      required: false,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.socialCategory,
+      label: "Social Category",
+      type: "select",
+      options: SOCIAL_CATEGORY_OPTIONS,
+      required: false,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.contactNumber,
+      label: "Mobile Number",
+      type: "phone",
+      placeholder: "10-digit mobile number",
+      required: true,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.email,
+      label: "Email ID",
+      type: "email",
+      placeholder: "you@example.com",
+      required: true,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.idProof,
+      label: "ID Proof Number (Aadhaar / PAN / Voter ID)",
+      type: "short_text",
+      placeholder: "Enter your ID number",
+      required: false,
+      maxLength: 40,
+    },
+
+    // ── Address details ──
+    {
+      key: DEFAULT_FIELD_KEYS.presentAddress,
+      label: "Present Address",
+      type: "long_text",
+      placeholder: "House / Street / Area, full present address",
+      required: false,
+      maxLength: 400,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.permanentAddress,
+      label: "Permanent Address",
+      type: "long_text",
+      placeholder: "House / Street / Area, full permanent address",
+      required: false,
+      maxLength: 400,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.landmark,
+      label: "Landmark",
+      type: "short_text",
+      placeholder: "e.g. Near City Mall",
+      required: false,
+      maxLength: 120,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.district,
+      label: "District",
+      type: "short_text",
+      placeholder: "e.g. Howrah",
+      required: false,
+      maxLength: 60,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.state,
+      label: "State",
+      type: "short_text",
+      placeholder: "e.g. West Bengal",
+      required: false,
+      maxLength: 60,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.city,
+      label: "City",
+      type: "short_text",
+      placeholder: "e.g. Kolkata",
+      required: false,
+      maxLength: 60,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.pincode,
+      label: "PIN Code",
+      type: "short_text",
+      placeholder: "6-digit PIN code",
+      required: false,
+      maxLength: 6,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.nearestRailwayStation,
+      label: "Nearest Railway Station",
+      type: "short_text",
+      placeholder: "e.g. Howrah Junction",
+      required: false,
+      maxLength: 120,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.bloodGroup,
+      label: "Blood Group",
+      type: "select",
+      options: BLOOD_GROUP_OPTIONS,
+      required: false,
+    },
+
+    // ── Education: Matriculation (10th) ──
+    {
+      key: DEFAULT_FIELD_KEYS.matricBoardName,
+      label: "Matriculation (10th) — Board Name",
+      type: "short_text",
+      placeholder: "e.g. WBBSE, CBSE, ICSE",
+      required: false,
+      maxLength: 80,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.matricFullMarks,
+      label: "Matriculation (10th) — Full Marks",
+      type: "number",
+      placeholder: "e.g. 100",
+      required: false,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.matricObtainedMarks,
+      label: "Matriculation (10th) — Obtained Marks",
+      type: "number",
+      placeholder: "e.g. 78",
+      required: false,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.matricSchool,
+      label: "Matriculation (10th) — School Name & Address",
+      type: "long_text",
+      placeholder: "School name with full address",
+      required: false,
+      maxLength: 400,
+    },
+
+    // ── Education: Higher Secondary (12th) ──
+    {
+      key: DEFAULT_FIELD_KEYS.hsBoardName,
+      label: "Higher Secondary (12th) — Board Name",
+      type: "short_text",
+      placeholder: "e.g. WBCHSE, CBSE, ISC",
+      required: false,
+      maxLength: 80,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.hsFullMarks,
+      label: "Higher Secondary (12th) — Full Marks",
+      type: "number",
+      placeholder: "e.g. 100",
+      required: false,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.hsObtainedMarks,
+      label: "Higher Secondary (12th) — Obtained Marks",
+      type: "number",
+      placeholder: "e.g. 72",
+      required: false,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.hsSchool,
+      label: "Higher Secondary (12th) — School Name & Address",
+      type: "long_text",
+      placeholder: "School name with full address",
+      required: false,
+      maxLength: 400,
+    },
+
+    // ── Education: higher qualifications ──
+    {
+      key: DEFAULT_FIELD_KEYS.lastQualification,
+      label: "Last Qualification",
+      type: "short_text",
+      placeholder: "e.g. Graduation — B.A. (2024)",
+      required: false,
+      maxLength: 160,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.extraQualification,
+      label: "Additional / Extra Qualification",
+      type: "short_text",
+      placeholder: "e.g. ITI, Diploma, Computer Course",
+      required: false,
+      maxLength: 200,
+    },
+
+    // ── Family ──
+    {
+      key: DEFAULT_FIELD_KEYS.familyMembers,
+      label: "Total Family Members",
+      type: "number",
+      placeholder: "e.g. 4",
+      required: false,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.familyIncome,
+      label: "Total Family Income (Annual, ₹)",
+      type: "number",
+      placeholder: "e.g. 180000",
+      required: false,
+    },
+
+    // ── Experience ──
+    {
+      key: DEFAULT_FIELD_KEYS.experienceYears,
+      label: "Experience (Years)",
+      type: "number",
+      placeholder: "e.g. 2 (0 for freshers)",
+      required: false,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.experienceWhere,
+      label: "Experience — Where (Company / Organisation)",
+      type: "short_text",
+      placeholder: "e.g. 2 years at XYZ Logistics, Delhi",
+      required: false,
+      maxLength: 200,
+    },
+
+    // ── Others ──
+    {
+      key: DEFAULT_FIELD_KEYS.heardFrom,
+      label: "Where did you hear about this job?",
+      type: "radio",
+      options: HEARD_FROM_OPTIONS,
+      required: false,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.declaration,
+      label: "Declaration",
+      type: "checkbox",
+      options: DECLARATION_OPTIONS,
+      required: true,
+    },
+
+    // ── Uploads ──
     {
       key: DEFAULT_FIELD_KEYS.photo,
       label: "Photo Upload",
@@ -152,10 +469,17 @@ export function defaultHiringFields(): HiringFieldConfig[] {
     },
     {
       key: DEFAULT_FIELD_KEYS.resume,
-      label: "Resume Upload",
+      label: "CV / Resume Upload",
       type: "resume_upload",
       helpText: "PDF only, up to 3 MB.",
-      required: true,
+      required: false,
+    },
+    {
+      key: DEFAULT_FIELD_KEYS.marksheet,
+      label: "Last Qualification Marksheet Upload",
+      type: "resume_upload",
+      helpText: "PDF only, up to 3 MB.",
+      required: false,
     },
   ];
 }
@@ -222,6 +546,9 @@ export function validateApplicationValues(
   const errors: Record<string, string> = {};
 
   for (const field of fields) {
+    // A field the admin toggled OFF is not part of the form at all.
+    if (!isFieldEnabled(field)) continue;
+
     const raw = values[field.key];
     const upload = uploadsByField[field.key];
 
@@ -334,9 +661,11 @@ export function normalizeFieldValue(
   }
 }
 
-/** Collect the set of upload field keys present on a form. */
+/** Collect the set of enabled upload field keys present on a form. */
 export function uploadFieldKeys(fields: HiringFieldConfig[]): string[] {
-  return fields.filter((field) => isUploadFieldType(field.type)).map((f) => f.key);
+  return fields
+    .filter((field) => isFieldEnabled(field) && isUploadFieldType(field.type))
+    .map((f) => f.key);
 }
 
 /** A stored answer from a previously submitted application. */
@@ -382,6 +711,7 @@ export function matchAutofillValues(
   const result: Record<string, string> = {};
   for (const field of fields) {
     if (isUploadFieldType(field.type)) continue;
+    if (!isFieldEnabled(field)) continue;
 
     const answer = [byKey.get(field.key), byLabel.get(normalizeLabelKey(field.label))].find(
       (candidate) => candidate !== undefined && candidate.type === field.type

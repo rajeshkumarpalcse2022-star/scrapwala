@@ -179,7 +179,7 @@ function UploadField({
 /**
  * Renders a hiring form's configured fields — used by the public application
  * page and by the admin form preview. Nothing here is hardcoded to the
- * default nine fields; the published configuration drives everything.
+ * default template; the published configuration drives everything.
  */
 export default function DynamicHiringFields({
   fields,

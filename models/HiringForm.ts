@@ -14,6 +14,11 @@ export interface IHiringField {
   placeholder?: string;
   helpText?: string;
   required: boolean;
+  /**
+   * Whether the field is included on the form (admin on/off toggle in the
+   * builder). Missing/undefined counts as enabled for backward compatibility.
+   */
+  enabled?: boolean;
   options?: IHiringFieldOption[];
   min?: number;
   max?: number;
@@ -60,6 +65,7 @@ const HiringFieldSchema = new Schema<IHiringField>(
     placeholder: { type: String, trim: true },
     helpText: { type: String, trim: true },
     required: { type: Boolean, default: false },
+    enabled: { type: Boolean, default: true },
     options: { type: [HiringFieldOptionSchema], default: undefined },
     min: { type: Number },
     max: { type: Number },

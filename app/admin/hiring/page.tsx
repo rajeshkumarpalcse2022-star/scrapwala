@@ -447,7 +447,7 @@ export default function AdminHiringPage() {
           ) : formsError ? null : forms.length === 0 ? (
             <AdminEmptyState
               title="No hiring forms yet"
-              description="Create your first form to start accepting applications. It will start with the default nine hiring fields."
+              description="Create your first form to start accepting applications. It will start with the full default hiring template — toggle fields on/off and add custom fields in the builder."
               icon={BriefcaseBusiness}
             />
           ) : (
@@ -864,8 +864,9 @@ export default function AdminHiringPage() {
               className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
             />
             <p className="mt-1 text-xs text-gray-500">
-              Saved as a draft with the default nine fields. You can customise
-              every field before publishing.
+              Saved as a draft with the full default field template. You can
+              toggle any field on/off, mark fields mandatory and add custom
+              fields before publishing.
             </p>
           </div>
 

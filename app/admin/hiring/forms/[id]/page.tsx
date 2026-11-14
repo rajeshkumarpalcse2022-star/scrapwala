@@ -8,6 +8,7 @@ import {
   ArrowDown,
   ArrowUp,
   CheckCircle2,
+  ChevronDown,
   Eye,
   IndianRupee,
   Loader2,
@@ -34,6 +35,8 @@ interface FormField {
   placeholder?: string;
   helpText?: string;
   required: boolean;
+  /** Admin on/off switch: off = kept in config but excluded from the form. */
+  enabled: boolean;
   options?: FieldOption[];
   min?: number;
   max?: number;
@@ -74,6 +77,22 @@ const NUMBER_TYPES = ["number"];
 const TEXT_TYPES = ["short_text", "long_text"];
 const UPLOAD_TYPES = ["photo_upload", "signature_upload", "resume_upload"];
 
+/** Compact badge shown next to each field name in the simple list. */
+const FIELD_TYPE_LABELS: Record<string, string> = {
+  short_text: "Text",
+  long_text: "Paragraph",
+  email: "Email",
+  phone: "Phone",
+  number: "Number",
+  date: "Date",
+  select: "Dropdown",
+  radio: "Radio",
+  checkbox: "Checkboxes",
+  photo_upload: "Photo Upload",
+  signature_upload: "Signature Upload",
+  resume_upload: "Document Upload",
+};
+
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-amber-100 text-amber-700",
   published: "bg-emerald-100 text-emerald-700",
@@ -89,6 +108,39 @@ const STATUS_LABELS: Record<string, string> = {
 const INPUT_CLASS =
   "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500";
 const LABEL_CLASS = "block text-sm font-medium text-gray-700 mb-1";
+
+/** Small on/off switch used for the per-field "Included" and "Required" toggles. */
+function Toggle({
+  checked,
+  onChange,
+  disabled,
+  label,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
+        checked ? "bg-emerald-600" : "bg-gray-300"
+      } ${disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"}`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+          checked ? "translate-x-6" : "translate-x-1"
+        }`}
+      />
+    </button>
+  );
+}
 
 function generateKey(label: string, existing: FormField[]): string {
   const base =
@@ -118,6 +170,26 @@ export default function HiringFormBuilderPage() {
 
   const [state, setState] = useState<FormState | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+
+  // "Add Custom Field" panel inputs.
+  const [customLabel, setCustomLabel] = useState("");
+  const [customType, setCustomType] = useState("short_text");
+  const [customRequired, setCustomRequired] = useState(false);
+
+  // Which fields have their detailed settings expanded (hidden by default so
+  // the list stays a simple name + toggles view).
+  const [expandedFields, setExpandedFields] = useState<Set<string>>(
+    () => new Set()
+  );
+
+  const toggleExpanded = useCallback((key: string) => {
+    setExpandedFields((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,6 +223,7 @@ export default function HiringFormBuilderPage() {
           status: form.status,
           fields: (form.fields ?? []).map((field: FormField) => ({
             ...field,
+            enabled: field.enabled !== false,
             options: field.options ?? [],
           })),
           applicationCount: form.applicationCount ?? 0,
@@ -205,28 +278,43 @@ export default function HiringFormBuilderPage() {
     });
   }, []);
 
-  const addField = useCallback(() => {
-    setState((prev) => {
-      if (!prev) return prev;
-      const key = generateKey("new_field", prev.fields);
-      return {
-        ...prev,
-        fields: [
-          ...prev.fields,
-          {
-            key,
-            label: "New Field",
-            type: "short_text",
-            placeholder: "",
-            helpText: "",
-            required: false,
-            options: [],
-            maxLength: TEXT_TYPES.includes("short_text") ? 300 : undefined,
-          },
-        ],
-      };
-    });
-  }, []);
+  const addCustomField = useCallback(
+    (label: string, type: string, required: boolean) => {
+      setState((prev) => {
+        if (!prev) return prev;
+        const key = generateKey(label, prev.fields);
+        return {
+          ...prev,
+          fields: [
+            ...prev.fields,
+            {
+              key,
+              label: label.trim(),
+              type,
+              placeholder: "",
+              helpText: "",
+              required,
+              enabled: true,
+              options: [],
+              maxLength: TEXT_TYPES.includes(type) ? 300 : undefined,
+            },
+          ],
+        };
+      });
+    },
+    []
+  );
+
+  const handleAddCustomField = useCallback(() => {
+    if (!customLabel.trim() || !state) return;
+    const expectedKey = generateKey(customLabel.trim(), state.fields);
+    addCustomField(customLabel, customType, customRequired);
+    // Open the new field's settings so placeholder/options can be filled in.
+    setExpandedFields((prev) => new Set(prev).add(expectedKey));
+    setCustomLabel("");
+    setCustomType("short_text");
+    setCustomRequired(false);
+  }, [customLabel, customType, customRequired, addCustomField, state]);
 
   const duplicateKeys = useMemo(() => {
     if (!state) return [] as string[];
@@ -271,6 +359,15 @@ export default function HiringFormBuilderPage() {
         setSaveError("A form needs at least one field.");
         return false;
       }
+      if (
+        nextStatus === "published" &&
+        state.fields.every((field) => !field.enabled)
+      ) {
+        setSaveError(
+          "Switch at least one field on before publishing — every field is currently toggled off."
+        );
+        return false;
+      }
       if (duplicateKeys.length > 0) {
         setSaveError(
           `Duplicate field keys: ${duplicateKeys.join(", ")}. Every field needs a unique key.`
@@ -311,6 +408,7 @@ export default function HiringFormBuilderPage() {
             placeholder: field.placeholder?.trim() || undefined,
             helpText: field.helpText?.trim() || undefined,
             required: field.required,
+            enabled: field.enabled,
             options: OPTION_TYPES.includes(field.type)
               ? (field.options ?? []).filter((option) => option.value)
               : undefined,
@@ -575,41 +673,152 @@ export default function HiringFormBuilderPage() {
           <div>
             <h2 className="text-base font-semibold text-gray-900">Form Fields</h2>
             <p className="mt-0.5 text-xs text-gray-500">
-              {state.fields.length} field(s) · keys are stable identifiers used
-              to store answers
+              {state.fields.filter((f) => f.enabled).length} of{" "}
+              {state.fields.length} field(s) included · use the switches to
+              include a field and mark it mandatory
             </p>
           </div>
-          <button
-            type="button"
-            onClick={addField}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            <Plus className="h-4 w-4" />
-            Add Field
-          </button>
+        </div>
+
+        {/* Add custom field */}
+        <div className="mt-4 rounded-lg border border-dashed border-emerald-300 bg-emerald-50/50 p-4">
+          <p className="text-sm font-semibold text-gray-800">Add Custom Field</p>
+          <p className="mt-0.5 text-xs text-gray-500">
+            Add as many extra fields as you need — text, number, date, dropdown,
+            file upload and more.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="lg:col-span-2">
+              <label className={LABEL_CLASS}>Field Name *</label>
+              <input
+                type="text"
+                value={customLabel}
+                onChange={(event) => setCustomLabel(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    handleAddCustomField();
+                  }
+                }}
+                placeholder="e.g. Preferred Interview Date"
+                className={INPUT_CLASS}
+              />
+            </div>
+            <div>
+              <label className={LABEL_CLASS}>Field Type</label>
+              <select
+                value={customType}
+                onChange={(event) => setCustomType(event.target.value)}
+                className={INPUT_CLASS}
+              >
+                {FIELD_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end justify-between gap-3">
+              <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={customRequired}
+                  onChange={(event) => setCustomRequired(event.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                Mandatory
+              </label>
+              <button
+                type="button"
+                onClick={handleAddCustomField}
+                disabled={!customLabel.trim()}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-40"
+              >
+                <Plus className="h-4 w-4" />
+                Add Field
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="mt-4 space-y-4">
           {state.fields.map((field, index) => (
             <div
               key={`${field.key}-${index}`}
-              className="rounded-lg border border-gray-200 p-4"
+              className={`rounded-lg border border-gray-200 p-4 ${
+                field.enabled ? "" : "bg-gray-50"
+              }`}
             >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="shrink-0 rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
                     #{index + 1}
                   </span>
-                  <span className="font-mono text-xs text-gray-400">
-                    {field.key}
+                  <span
+                    className={`truncate text-sm font-medium ${
+                      field.enabled ? "text-gray-800" : "text-gray-400"
+                    }`}
+                  >
+                    {field.label || "Untitled field"}
                   </span>
-                  {UPLOAD_TYPES.includes(field.type) && (
-                    <span className="rounded bg-sky-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sky-600">
-                      upload
-                    </span>
-                  )}
+                  <span
+                    className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                      UPLOAD_TYPES.includes(field.type)
+                        ? "bg-sky-50 text-sky-600"
+                        : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {FIELD_TYPE_LABELS[field.type] ?? field.type}
+                  </span>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <Toggle
+                      checked={field.enabled}
+                      onChange={(checked) =>
+                        patchField(index, { enabled: checked })
+                      }
+                      label={`Include "${field.label || "field"}" on the form`}
+                    />
+                    <span className="text-xs font-medium text-gray-600">
+                      Included
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Toggle
+                      checked={field.required}
+                      disabled={!field.enabled}
+                      onChange={(checked) =>
+                        patchField(index, { required: checked })
+                      }
+                      label={`Mark "${field.label || "field"}" mandatory`}
+                    />
+                    <span className="text-xs font-medium text-gray-600">
+                      Mandatory
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-0.5">
+                    {field.enabled && (
+                      <button
+                        type="button"
+                        onClick={() => toggleExpanded(field.key)}
+                        aria-label={
+                          expandedFields.has(field.key)
+                            ? "Hide field settings"
+                            : "Show field settings"
+                        }
+                        title="Field settings"
+                        className={`rounded p-1.5 text-gray-500 hover:bg-gray-100 ${
+                          expandedFields.has(field.key) ? "bg-gray-100" : ""
+                        }`}
+                      >
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${
+                            expandedFields.has(field.key) ? "rotate-180" : ""
+                          }`}
+                        />
+                      </button>
+                    )}
                   <button
                     type="button"
                     disabled={index === 0}
@@ -636,9 +845,18 @@ export default function HiringFormBuilderPage() {
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
+                  </div>
                 </div>
               </div>
 
+              {!field.enabled && (
+                <p className="mt-2 text-xs text-gray-500">
+                  Switched off — this field will not appear on the application
+                  form. Turn it on to edit its settings.
+                </p>
+              )}
+
+              {field.enabled && expandedFields.has(field.key) && (
               <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <div>
                   <label className={LABEL_CLASS}>Label *</label>
@@ -725,7 +943,7 @@ export default function HiringFormBuilderPage() {
                     <label className={LABEL_CLASS}>Max Length</label>
                     <input
                       type="number"
-                      min={10}
+                      min={1}
                       max={4000}
                       value={field.maxLength ?? ""}
                       onChange={(event) =>
@@ -783,25 +1001,14 @@ export default function HiringFormBuilderPage() {
                       : field.type === "signature_upload"
                         ? "JPEG/PNG/WebP, up to 1 MB."
                         : "JPEG/PNG/WebP, up to 2 MB."}{" "}
-                    You can rename the label, make it optional or remove the
+                    You can rename the label, make it mandatory or remove the
                     field.
                   </p>
                 )}
-
-                <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={field.required}
-                    onChange={(event) =>
-                      patchField(index, { required: event.target.checked })
-                    }
-                    className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                  />
-                  Required
-                </label>
               </div>
+              )}
 
-              {OPTION_TYPES.includes(field.type) && (
+              {field.enabled && expandedFields.has(field.key) && OPTION_TYPES.includes(field.type) && (
                 <div className="mt-3 rounded-lg bg-gray-50 p-3">
                   <p className="text-xs font-medium text-gray-600">
                     Options (label shown to applicant / stored value)
@@ -887,7 +1094,7 @@ export default function HiringFormBuilderPage() {
 
           {state.fields.length === 0 && (
             <p className="py-8 text-center text-sm text-gray-500">
-              No fields yet. Add at least one field before saving.
+              No fields yet. Add at least one field above before saving.
             </p>
           )}
         </div>
@@ -926,7 +1133,9 @@ export default function HiringFormBuilderPage() {
             </div>
           )}
           <DynamicHiringFields
-            fields={state.fields as RendererField[]}
+            fields={
+              state.fields.filter((field) => field.enabled) as RendererField[]
+            }
             values={{}}
             errors={{}}
             uploads={{}}
@@ -936,6 +1145,12 @@ export default function HiringFormBuilderPage() {
             onUpload={() => undefined}
             onRemoveUpload={() => undefined}
           />
+          {state.fields.filter((field) => field.enabled).length === 0 && (
+            <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Every field is switched off. Turn at least one on before
+              publishing.
+            </p>
+          )}
         </div>
       </AdminModal>
     </div>

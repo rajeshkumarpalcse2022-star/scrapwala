@@ -33,10 +33,12 @@ export const hiringFieldSchema = z
     placeholder: z.string().trim().max(160).optional(),
     helpText: z.string().trim().max(300).optional(),
     required: z.boolean(),
+    /** Admin on/off toggle: true/undefined = included on the form. */
+    enabled: z.boolean().optional(),
     options: z.array(optionSchema).max(60).optional(),
-    min: z.number().min(0).max(200).optional(),
-    max: z.number().min(0).max(200).optional(),
-    maxLength: z.number().int().min(10).max(4000).optional(),
+    min: z.number().min(0).max(100_000_000).optional(),
+    max: z.number().min(0).max(100_000_000).optional(),
+    maxLength: z.number().int().min(1).max(4000).optional(),
   })
   .superRefine((field, ctx) => {
     if ((field.type === "select" || field.type === "radio" || field.type === "checkbox") && (!field.options || field.options.length < 1)) {
@@ -105,7 +107,7 @@ export const createHiringFormSchema = z.object({
   fields: z
     .array(hiringFieldSchema)
     .min(1, "A form needs at least one field")
-    .max(40, "A form can have at most 40 fields"),
+    .max(80, "A form can have at most 80 fields"),
 });
 
 export const updateHiringFormSchema = createHiringFormSchema.extend({

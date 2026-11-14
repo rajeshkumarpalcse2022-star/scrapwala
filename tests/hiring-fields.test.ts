@@ -5,6 +5,7 @@ import {
   DEFAULT_FIELD_KEYS,
   UPLOAD_KIND_LIMITS,
   defaultHiringFields,
+  isFieldEnabled,
   isUploadFieldType,
   matchAutofillValues,
   normalizeEmail,
@@ -28,23 +29,54 @@ function field(
 }
 
 describe("hiring-fields defaults", () => {
-  it("ships the nine default fields with stable keys", () => {
+  it("ships the full default template with stable keys", () => {
     const fields = defaultHiringFields();
-    assert.equal(fields.length, 9);
+    assert.equal(fields.length, 38);
     assert.deepEqual(
       fields.map((f) => f.key),
       [
         DEFAULT_FIELD_KEYS.fullName,
-        DEFAULT_FIELD_KEYS.contactNumber,
-        DEFAULT_FIELD_KEYS.whatsappNumber,
-        DEFAULT_FIELD_KEYS.email,
-        DEFAULT_FIELD_KEYS.education,
+        DEFAULT_FIELD_KEYS.fatherName,
+        DEFAULT_FIELD_KEYS.motherName,
         DEFAULT_FIELD_KEYS.age,
+        DEFAULT_FIELD_KEYS.gender,
+        DEFAULT_FIELD_KEYS.socialCategory,
+        DEFAULT_FIELD_KEYS.contactNumber,
+        DEFAULT_FIELD_KEYS.email,
+        DEFAULT_FIELD_KEYS.idProof,
+        DEFAULT_FIELD_KEYS.presentAddress,
+        DEFAULT_FIELD_KEYS.permanentAddress,
+        DEFAULT_FIELD_KEYS.landmark,
+        DEFAULT_FIELD_KEYS.district,
+        DEFAULT_FIELD_KEYS.state,
+        DEFAULT_FIELD_KEYS.city,
+        DEFAULT_FIELD_KEYS.pincode,
+        DEFAULT_FIELD_KEYS.nearestRailwayStation,
+        DEFAULT_FIELD_KEYS.bloodGroup,
+        DEFAULT_FIELD_KEYS.matricBoardName,
+        DEFAULT_FIELD_KEYS.matricFullMarks,
+        DEFAULT_FIELD_KEYS.matricObtainedMarks,
+        DEFAULT_FIELD_KEYS.matricSchool,
+        DEFAULT_FIELD_KEYS.hsBoardName,
+        DEFAULT_FIELD_KEYS.hsFullMarks,
+        DEFAULT_FIELD_KEYS.hsObtainedMarks,
+        DEFAULT_FIELD_KEYS.hsSchool,
+        DEFAULT_FIELD_KEYS.lastQualification,
+        DEFAULT_FIELD_KEYS.extraQualification,
+        DEFAULT_FIELD_KEYS.familyMembers,
+        DEFAULT_FIELD_KEYS.familyIncome,
+        DEFAULT_FIELD_KEYS.experienceYears,
+        DEFAULT_FIELD_KEYS.experienceWhere,
+        DEFAULT_FIELD_KEYS.heardFrom,
+        DEFAULT_FIELD_KEYS.declaration,
         DEFAULT_FIELD_KEYS.photo,
         DEFAULT_FIELD_KEYS.signature,
         DEFAULT_FIELD_KEYS.resume,
+        DEFAULT_FIELD_KEYS.marksheet,
       ]
     );
+    // Every default field ships switched on.
+    assert.ok(fields.every((f) => f.enabled !== false));
   });
 
   it("marks the required subset correctly", () => {
@@ -56,9 +88,12 @@ describe("hiring-fields defaults", () => {
     assert.equal(byKey.get(DEFAULT_FIELD_KEYS.email), true);
     assert.equal(byKey.get(DEFAULT_FIELD_KEYS.photo), true);
     assert.equal(byKey.get(DEFAULT_FIELD_KEYS.signature), true);
-    assert.equal(byKey.get(DEFAULT_FIELD_KEYS.resume), true);
-    assert.equal(byKey.get(DEFAULT_FIELD_KEYS.whatsappNumber), false);
+    assert.equal(byKey.get(DEFAULT_FIELD_KEYS.declaration), true);
+    assert.equal(byKey.get(DEFAULT_FIELD_KEYS.fatherName), false);
+    assert.equal(byKey.get(DEFAULT_FIELD_KEYS.motherName), false);
     assert.equal(byKey.get(DEFAULT_FIELD_KEYS.age), false);
+    assert.equal(byKey.get(DEFAULT_FIELD_KEYS.resume), false);
+    assert.equal(byKey.get(DEFAULT_FIELD_KEYS.marksheet), false);
   });
 
   it("never lets admin config exceed system upload limits", () => {
@@ -182,22 +217,59 @@ describe("validateApplicationValues", () => {
     assert.match(errors.summary, /20 characters/);
   });
 
+  it("skips fields toggled off (enabled: false)", () => {
+    const errors = validateApplicationValues(
+      [
+        field({ key: "full_name", label: "Full Name", type: "short_text", required: true }),
+        {
+          ...field({ key: "age", label: "Age", type: "number", required: true }),
+          enabled: false,
+        },
+      ],
+      {}
+    );
+    // Only the enabled field's error is reported; the off field is ignored.
+    assert.deepEqual(errors, { full_name: "Full Name is required." });
+
+    // Invalid values on a toggled-off field are not validated either.
+    const invalid = validateApplicationValues(
+      [
+        {
+          ...field({ key: "age", label: "Age", type: "number", min: 18, required: true }),
+          enabled: false,
+        },
+      ],
+      { age: "5" }
+    );
+    assert.deepEqual(invalid, {});
+  });
+
+  it("treats a missing enabled flag as enabled (backward compatible)", () => {
+    const errors = validateApplicationValues(
+      [field({ key: "full_name", label: "Full Name", type: "short_text", required: true })],
+      {}
+    );
+    assert.deepEqual(errors, { full_name: "Full Name is required." });
+  });
+
   it("accepts a complete valid submission", () => {
     const fields = defaultHiringFields();
     const errors = validateApplicationValues(
       fields,
       {
         full_name: "Rajesh Kumar",
-        contact_number: "9876543210",
-        whatsapp_number: "",
-        gmail_email: "rajesh@gmail.com",
-        education: "B.A.",
+        father_name: "Suresh Kumar",
+        mother_name: "Lakshmi Devi",
         age: "25",
+        gender: "male",
+        social_category: "general",
+        contact_number: "9876543210",
+        gmail_email: "rajesh@gmail.com",
+        declaration: "declared_true",
       },
       {
         photo_upload: { id: "p1" },
         signature_upload: { id: "s1" },
-        resume_upload: { id: "r1" },
       }
     );
     assert.deepEqual(errors, {});
@@ -231,6 +303,31 @@ describe("isUploadFieldType", () => {
     assert.equal(isUploadFieldType("signature_upload"), true);
     assert.equal(isUploadFieldType("resume_upload"), true);
     assert.equal(isUploadFieldType("short_text"), false);
+  });
+});
+
+describe("isFieldEnabled", () => {
+  it("treats undefined as enabled and explicit false as off", () => {
+    assert.equal(isFieldEnabled({}), true);
+    assert.equal(isFieldEnabled({ enabled: true }), true);
+    assert.equal(isFieldEnabled({ enabled: false }), false);
+  });
+});
+
+describe("defaultHiringFields schema compatibility", () => {
+  it("produces field configs the server-side field schema accepts", async () => {
+    // Import through the same module the API route validates with.
+    const { hiringFieldSchema } = await import("../lib/validations/hiring");
+    for (const field of defaultHiringFields()) {
+      const result = hiringFieldSchema.safeParse(field);
+      assert.equal(
+        result.success,
+        true,
+        `Default field "${field.key}" failed schema: ${
+          result.success ? "" : JSON.stringify(result.error.issues)
+        }`
+      );
+    }
   });
 });
 

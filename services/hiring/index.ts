@@ -13,6 +13,7 @@ import Counter from "@/models/Counter";
 import {
   HiringFieldConfig,
   defaultHiringFields,
+  enabledHiringFields,
   formatHiringPrice,
   isUploadFieldType,
   normalizeFieldValue,
@@ -153,10 +154,10 @@ function assertFormConfig(fields: HiringFieldConfig[]): void {
   if (fields.length === 0) {
     throw new ApiError(400, "A form needs at least one field", "INVALID_FORM");
   }
-  if (fields.length > 40) {
+  if (fields.length > 80) {
     throw new ApiError(
       400,
-      "A form can have at most 40 fields",
+      "A form can have at most 80 fields",
       "INVALID_FORM"
     );
   }
@@ -218,6 +219,20 @@ function assertFormConfig(fields: HiringFieldConfig[]): void {
   }
 }
 
+/**
+ * A published form must show at least one field — toggling everything off
+ * would render an empty application form.
+ */
+function assertPublishableFields(fields: HiringFieldConfig[]): void {
+  if (enabledHiringFields(fields).length === 0) {
+    throw new ApiError(
+      400,
+      "Switch at least one field on before publishing — every field is currently toggled off.",
+      "INVALID_FORM"
+    );
+  }
+}
+
 function serializeForm(
   form: IHiringForm,
   applicationCount = 0
@@ -240,6 +255,10 @@ function serializeForm(
 }
 
 function serializePublicForm(form: IHiringForm): PublicHiringFormDTO {
+  // Toggled-off fields are never shown to applicants.
+  const fields = enabledHiringFields(
+    (form.fields as unknown as HiringFieldConfig[]) ?? []
+  );
   return {
     id: String(form._id),
     title: form.title,
@@ -247,7 +266,7 @@ function serializePublicForm(form: IHiringForm): PublicHiringFormDTO {
     subtitle: form.subtitle,
     description: form.description,
     instructions: form.instructions,
-    fields: (form.fields as unknown as HiringFieldConfig[]) ?? [],
+    fields,
     price: form.price ?? 0,
   };
 }
@@ -305,6 +324,7 @@ export async function createHiringForm(
 ): Promise<HiringFormDTO> {
   await connectDB();
   assertFormConfig(input.fields);
+  if (input.status === "published") assertPublishableFields(input.fields);
 
   const existing = await HiringForm.find({ slug: /^[\w-]+$/ })
     .select("slug")
@@ -355,6 +375,7 @@ export async function updateHiringForm(
     throw new ApiError(404, "Hiring form not found", "NOT_FOUND");
   }
   assertFormConfig(input.fields);
+  if (input.status === "published") assertPublishableFields(input.fields);
 
   const form = await HiringForm.findById(id);
   if (!form) throw new ApiError(404, "Hiring form not found", "NOT_FOUND");
@@ -396,6 +417,7 @@ export async function setHiringFormStatus(
     // Re-validating protects against forms saved before a validation rule
     // tightened.
     assertFormConfig(form.fields as unknown as HiringFieldConfig[]);
+    assertPublishableFields(form.fields as unknown as HiringFieldConfig[]);
     if (form.isFeatured) {
       await HiringForm.updateMany(
         { _id: { $ne: form._id }, status: "published", isFeatured: true },
@@ -803,7 +825,11 @@ export async function createHiringApplication(input: {
     }
   }
 
-  const fields = form.fields as unknown as HiringFieldConfig[];
+  // Toggled-off fields are not part of the form: never validated, never
+  // stored, never shown to admins reviewing the application.
+  const fields = enabledHiringFields(
+    form.fields as unknown as HiringFieldConfig[]
+  );
 
   // Resolve + verify staged uploads owned by this user.
   const uploadRecords = new Map<string, (typeof HiringUpload.prototype)>();

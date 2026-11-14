@@ -20,8 +20,9 @@ export async function GET() {
 }
 
 /**
- * Creates a new form. When no fields are supplied, the default nine-field
- * hiring template is used so admins start from a working configuration.
+ * Creates a new form. When no fields are supplied, the default hiring-field
+ * template is seeded so admins can start from the full field list and toggle
+ * what they need.
  */
 export async function POST(request: NextRequest) {
   try {
