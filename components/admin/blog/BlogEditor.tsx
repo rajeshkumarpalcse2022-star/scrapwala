@@ -5,41 +5,59 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
-  ArrowDown,
-  ArrowUp,
   CalendarClock,
   CheckCircle2,
-  Eye,
   ExternalLink,
-  GripVertical,
-  ImagePlus,
+  Eye,
+  Globe2,
   Loader2,
-  Plus,
+  Save,
   Send,
   Star,
-  Trash2,
   Undo2,
   X,
 } from "lucide-react";
 import AdminModal from "@/components/admin/AdminModal";
 import RemoteImage from "@/components/common/RemoteImage";
 import BlogContentRenderer from "@/components/blog/BlogContentRenderer";
-import type {
-  AdminBlogDetailDTO,
-  BlogCategoryDTO,
-} from "@/services/blog";
-import type { BlogPostStatus } from "@/models/BlogPost";
-import type { BlogBlockInput } from "@/lib/validations/blog";
+import type { AdminBlogDetailDTO, BlogCategoryDTO } from "@/services/blog";
 import {
   calculateReadingTimeMinutes,
   countWords,
   extractPlainText,
-  isEmptyContent,
   type BlogBlock,
 } from "@/lib/utils/blog-content";
+import {
+  blockToEditorHtml,
+  blocksToEditorHtml,
+  editorRootToBlocks,
+  escapeHtml,
+} from "@/lib/utils/rich-blog-content";
+import { parseSocialEmbed } from "@/lib/utils/social-embeds";
 import { slugify } from "@/lib/utils/slug";
-
-type BlogStatus = BlogPostStatus;
+import BlogEditorToolbar from "./editor/Toolbar";
+import ImageField from "./editor/ImageField";
+import {
+  EmbedDialog,
+  ImageDialog,
+  InlineLinkDialog,
+  LinkCardDialog,
+} from "./editor/MediaDialogs";
+import {
+  EMPTY_FORMAT_STATE,
+  EMPTY_IMAGE,
+  STATUS_LABELS,
+  cleanBlocks,
+  deriveExcerpt,
+  formatStateEqual,
+  imageValueFromDTO,
+  placeCaretAtEnd,
+  toLocalInputValue,
+  type BlogStatus,
+  type FormatState,
+  type ImageFieldKey,
+  type ImageValue,
+} from "./editor/helpers";
 
 interface BlogEditorProps {
   categories: BlogCategoryDTO[];
@@ -47,50 +65,29 @@ interface BlogEditorProps {
   post: AdminBlogDetailDTO | null;
 }
 
-type BlockDraft = BlogBlockInput;
+type DialogKind = "image" | "embed" | "link" | "linkCard" | "schedule" | "preview";
 
-type ImageValue = { url: string; publicId?: string; alt: string };
+interface SavedArticle {
+  id: string;
+  blocks: BlogBlock[];
+}
 
-const BLOCK_TYPE_LABELS: Record<BlockDraft["type"], string> = {
-  heading: "Heading",
-  paragraph: "Paragraph",
-  bulletList: "Bullet list",
-  orderedList: "Numbered list",
-  blockquote: "Quote",
-  image: "Image",
+const STATUS_STYLES: Record<BlogStatus, string> = {
+  draft: "bg-gray-100 text-gray-600 ring-gray-200",
+  scheduled: "bg-blue-50 text-blue-700 ring-blue-100",
+  published: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+  archived: "bg-amber-50 text-amber-700 ring-amber-100",
 };
 
-function makeBlock(type: BlockDraft["type"]): BlockDraft {
-  switch (type) {
-    case "heading":
-      return { type, level: 2, text: "" };
-    case "paragraph":
-      return { type, text: "" };
-    case "bulletList":
-    case "orderedList":
-      return { type, items: [""] };
-    case "blockquote":
-      return { type, text: "" };
-    case "image":
-      return { type, url: "", alt: "", caption: "" };
-  }
-}
-
-function toLocalInputValue(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
-    date.getDate()
-  )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-const EMPTY_IMAGE: ImageValue = { url: "", alt: "" };
+const inputClass =
+  "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500";
+const labelClass =
+  "block text-xs font-semibold uppercase tracking-wide text-gray-400";
 
 export default function BlogEditor({ categories, post }: BlogEditorProps) {
   const router = useRouter();
 
+  const [postId, setPostId] = useState<string | null>(post?.id ?? null);
   const [title, setTitle] = useState(post?.title ?? "");
   const [slug, setSlug] = useState(post?.slug ?? "");
   const [slugTouched, setSlugTouched] = useState(Boolean(post?.slug));
@@ -99,52 +96,66 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
   const [authorName, setAuthorName] = useState(post?.authorName ?? "");
   const [categoryId, setCategoryId] = useState(post?.category?.id ?? "");
   const [coverImage, setCoverImage] = useState<ImageValue>(
-    post?.coverImage
-      ? {
-          url: post.coverImage.url,
-          publicId: post.coverImage.publicId,
-          alt: post.coverImage.alt,
-        }
-      : EMPTY_IMAGE
+    imageValueFromDTO(post?.coverImage)
   );
   const [socialImage, setSocialImage] = useState<ImageValue>(
-    post?.socialImage
-      ? {
-          url: post.socialImage.url,
-          publicId: post.socialImage.publicId,
-          alt: post.socialImage.alt,
-        }
-      : EMPTY_IMAGE
+    imageValueFromDTO(post?.socialImage)
   );
   const [seoMetaTitle, setSeoMetaTitle] = useState(post?.seoMetaTitle ?? "");
   const [seoMetaDescription, setSeoMetaDescription] = useState(
     post?.seoMetaDescription ?? ""
   );
-  const [blocks, setBlocks] = useState<BlockDraft[]>(
-    post?.content?.length
-      ? (post.content as BlockDraft[])
-      : [makeBlock("heading"), makeBlock("paragraph")]
-  );
+  const [blocks, setBlocks] = useState<BlogBlock[]>(post?.content ?? []);
 
   const [status, setStatus] = useState<BlogStatus>(post?.status ?? "draft");
   const [isFeatured, setIsFeatured] = useState(post?.isFeatured ?? false);
-  const [scheduledAtLocal, setScheduledAtLocal] = useState(
+  const [scheduledAt, setScheduledAt] = useState<string | null>(
+    post?.scheduledAt ?? null
+  );
+  const [scheduleInput, setScheduleInput] = useState(
     toLocalInputValue(post?.scheduledAt)
   );
 
   const [saving, setSaving] = useState(false);
   const [statusAction, setStatusAction] = useState<BlogStatus | null>(null);
   const [togglingFeature, setTogglingFeature] = useState(false);
-  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const [uploadingKey, setUploadingKey] = useState<ImageFieldKey | null>(null);
+  const [dialog, setDialog] = useState<DialogKind | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [selectedText, setSelectedText] = useState("");
+  const [formatState, setFormatState] =
+    useState<FormatState>(EMPTY_FORMAT_STATE);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
 
+  const editorRef = useRef<HTMLDivElement>(null);
+  const savedRangeRef = useRef<Range | null>(null);
+  const initializedRef = useRef(false);
   const baselineRef = useRef<string | null>(null);
 
-  const snapshot = useCallback(
-    () =>
+  const busy = saving || statusAction !== null;
+
+  const effectiveExcerpt = useMemo(
+    () => excerpt.trim() || deriveExcerpt(blocks, title),
+    [excerpt, blocks, title]
+  );
+
+  const wordCount = useMemo(
+    () => countWords(extractPlainText(blocks)),
+    [blocks]
+  );
+
+  const readingTime = useMemo(
+    () => calculateReadingTimeMinutes(blocks),
+    [blocks]
+  );
+
+  const previewBlocks = useMemo(() => cleanBlocks(blocks), [blocks]);
+
+  const serialize = useCallback(
+    (content: BlogBlock[]) =>
       JSON.stringify({
         title,
         slug,
@@ -156,7 +167,7 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
         socialImage,
         seoMetaTitle,
         seoMetaDescription,
-        blocks,
+        blocks: content,
       }),
     [
       title,
@@ -169,15 +180,28 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
       socialImage,
       seoMetaTitle,
       seoMetaDescription,
-      blocks,
     ]
   );
 
+  const snapshot = useCallback(
+    () => serialize(blocks),
+    [serialize, blocks]
+  );
+
   useEffect(() => {
-    baselineRef.current = snapshot();
-    // Baseline is captured once on mount to detect later edits.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const root = editorRef.current;
+    if (!root || initializedRef.current) return;
+    const initial = post?.content ?? [];
+    root.innerHTML = initial.length
+      ? blocksToEditorHtml(initial)
+      : "<p><br></p>";
+    setBlocks(initial);
+    initializedRef.current = true;
+  }, [post]);
+
+  useEffect(() => {
+    if (baselineRef.current === null) baselineRef.current = snapshot();
+  }, [snapshot]);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -193,14 +217,128 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [snapshot]);
 
-  const wordCount = useMemo(
-    () => countWordsSafe(blocks),
-    [blocks]
-  );
-  const readingTime = useMemo(
-    () => calculateReadingTimeMinutes(blocks),
-    [blocks]
-  );
+  const getLatestBlocks = (): BlogBlock[] => {
+    const root = editorRef.current;
+    return root ? editorRootToBlocks(root) : blocks;
+  };
+
+  const syncFromEditor = (): BlogBlock[] => {
+    const next = getLatestBlocks();
+    setBlocks(next);
+    refreshFormatState();
+    return next;
+  };
+
+  const refreshFormatState = () => {
+    const root = editorRef.current;
+    const selection = window.getSelection();
+    if (!root || !selection || selection.rangeCount === 0) return;
+    const anchor = selection.anchorNode;
+    if (!anchor || !root.contains(anchor)) return;
+
+    const anchorElement =
+      anchor.nodeType === Node.ELEMENT_NODE
+        ? (anchor as HTMLElement)
+        : anchor.parentElement;
+    const block = anchorElement
+      ?.closest("h2, h3, h4, blockquote, p, li")
+      ?.tagName.toLowerCase();
+
+    const next: FormatState = {
+      bold: document.queryCommandState("bold"),
+      italic: document.queryCommandState("italic"),
+      underline: document.queryCommandState("underline"),
+      bulletList: document.queryCommandState("insertUnorderedList"),
+      orderedList: document.queryCommandState("insertOrderedList"),
+      quote: block === "blockquote",
+      left: document.queryCommandState("justifyLeft"),
+      center: document.queryCommandState("justifyCenter"),
+      right: document.queryCommandState("justifyRight"),
+      block: block ?? "",
+    };
+
+    setFormatState((previous) =>
+      formatStateEqual(previous, next) ? previous : next
+    );
+  };
+
+  const saveSelection = () => {
+    const root = editorRef.current;
+    const selection = window.getSelection();
+    if (
+      !root ||
+      !selection ||
+      selection.rangeCount === 0 ||
+      !selection.anchorNode ||
+      !root.contains(selection.anchorNode)
+    ) {
+      savedRangeRef.current = null;
+      setSelectedText("");
+      return;
+    }
+    savedRangeRef.current = selection.getRangeAt(0).cloneRange();
+    setSelectedText(selection.toString());
+  };
+
+  const restoreSelection = () => {
+    const root = editorRef.current;
+    if (!root) return;
+    root.focus();
+    const selection = window.getSelection();
+    if (!selection) return;
+    selection.removeAllRanges();
+    const saved = savedRangeRef.current;
+    if (saved && root.contains(saved.commonAncestorContainer)) {
+      selection.addRange(saved);
+    } else {
+      placeCaretAtEnd(root);
+    }
+  };
+
+  const insertHtml = (html: string) => {
+    const root = editorRef.current;
+    if (!root) return;
+    restoreSelection();
+    let inserted = false;
+    try {
+      inserted = document.execCommand("insertHTML", false, html);
+    } catch {
+      inserted = false;
+    }
+    if (!inserted) {
+      root.insertAdjacentHTML("beforeend", html);
+    }
+    savedRangeRef.current = null;
+    syncFromEditor();
+  };
+
+  const insertBlock = (block: BlogBlock) => {
+    insertHtml(`${blockToEditorHtml(block)}<p><br></p>`);
+  };
+
+  const applyCommand = (command: string, value?: string) => {
+    const root = editorRef.current;
+    if (!root) return;
+    root.focus();
+    try {
+      document.execCommand(command, false, value);
+    } catch {
+      return;
+    }
+    syncFromEditor();
+  };
+
+  const handleRemoveMedia = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const button = target.closest("[data-blog-action='remove-media']");
+    if (!button) return;
+    event.preventDefault();
+    const figure = button.closest("figure[data-blog-block]");
+    if (!figure) return;
+    figure.remove();
+    syncFromEditor();
+  };
 
   const handleTitleChange = (value: string) => {
     setTitle(value);
@@ -210,32 +348,6 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
   const handleSlugChange = (value: string) => {
     setSlugTouched(true);
     setSlug(slugify(value));
-  };
-
-  const updateBlock = (index: number, patch: Partial<BlockDraft>) => {
-    setBlocks((prev) =>
-      prev.map((block, i) =>
-        i === index ? ({ ...block, ...patch } as BlockDraft) : block
-      )
-    );
-  };
-
-  const moveBlock = (index: number, direction: -1 | 1) => {
-    setBlocks((prev) => {
-      const next = [...prev];
-      const target = index + direction;
-      if (target < 0 || target >= next.length) return prev;
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-  };
-
-  const removeBlock = (index: number) => {
-    setBlocks((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const addBlock = (type: BlockDraft["type"]) => {
-    setBlocks((prev) => [...prev, makeBlock(type)]);
   };
 
   const uploadImage = async (file: File): Promise<ImageValue> => {
@@ -256,83 +368,147 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
     };
   };
 
-  const handleFieldUpload = async (
-    key: string,
-    file: File,
-    onDone: (image: ImageValue) => void
-  ) => {
+  const uploadFieldImage = async (key: ImageFieldKey, file: File) => {
     setUploadingKey(key);
     setError(null);
     try {
-      onDone(await uploadImage(file));
+      const image = await uploadImage(file);
+      if (key === "cover") {
+        setCoverImage((previous) => ({ ...previous, ...image }));
+      } else {
+        setSocialImage((previous) => ({ ...previous, ...image }));
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed.");
+      setError(err instanceof Error ? err.message : "Image upload failed.");
     } finally {
       setUploadingKey(null);
     }
   };
 
-  const validate = (): string | null => {
-    if (title.trim().length < 3) return "Title must be at least 3 characters.";
-    if (excerpt.trim().length < 10)
-      return "Excerpt must be at least 10 characters.";
+  const openImageDialog = () => {
+    saveSelection();
+    setImageError(null);
+    setDialog("image");
+  };
+
+  const handleInsertImage = async (
+    file: File,
+    alt: string,
+    caption: string
+  ) => {
+    setImageBusy(true);
+    setImageError(null);
+    try {
+      const image = await uploadImage(file);
+      insertBlock({
+        type: "image",
+        url: image.url,
+        publicId: image.publicId,
+        alt,
+        ...(caption ? { caption } : {}),
+      });
+      setDialog(null);
+    } catch (err) {
+      setImageError(
+        err instanceof Error ? err.message : "Image upload failed."
+      );
+    } finally {
+      setImageBusy(false);
+    }
+  };
+
+  const handleInsertEmbed = (url: string, embedTitle: string) => {
+    const parsed = parseSocialEmbed(url);
+    if (!parsed) return;
+    insertBlock({
+      type: "embed",
+      provider: parsed.provider,
+      url: parsed.url,
+      embedUrl: parsed.embedUrl,
+      ...(embedTitle ? { title: embedTitle } : {}),
+    });
+    setDialog(null);
+  };
+
+  const handleInsertInlineLink = (
+    url: string,
+    text: string,
+    replaceSelection: boolean
+  ) => {
+    const root = editorRef.current;
+    let linked = false;
+    if (
+      replaceSelection &&
+      root &&
+      savedRangeRef.current &&
+      root.contains(savedRangeRef.current.commonAncestorContainer)
+    ) {
+      restoreSelection();
+      try {
+        linked = document.execCommand("createLink", false, url);
+      } catch {
+        linked = false;
+      }
+    }
+    if (linked) {
+      syncFromEditor();
+    } else {
+      insertHtml(`<a href="${escapeHtml(url)}">${escapeHtml(text)}</a>`);
+    }
+    savedRangeRef.current = null;
+    setDialog(null);
+  };
+
+  const handleInsertLinkCard = (
+    url: string,
+    linkTitle: string,
+    description: string
+  ) => {
+    insertBlock({
+      type: "link",
+      url,
+      title: linkTitle,
+      ...(description ? { description } : {}),
+    });
+    setDialog(null);
+  };
+
+  const validateContent = (content: BlogBlock[]): string | null => {
+    if (title.trim().length < 3) {
+      return "Title must be at least 3 characters.";
+    }
     if (!categoryId) return "Please choose a category.";
     if (!authorName.trim()) return "Author name is required.";
-    if (isEmptyContent(blocks)) return "Add at least one content block.";
-    for (const block of blocks) {
-      if (block.type === "image" && !block.url) {
-        return "Every image block needs an uploaded image.";
-      }
-      if (
-        (block.type === "bulletList" || block.type === "orderedList") &&
-        !block.items.some((item) => item.trim())
-      ) {
-        return "List blocks need at least one item.";
-      }
-      if (
-        (block.type === "heading" ||
-          block.type === "paragraph" ||
-          block.type === "blockquote") &&
-        !block.text.trim()
-      ) {
-        return `Empty ${BLOCK_TYPE_LABELS[block.type].toLowerCase()} block — fill it in or remove it.`;
-      }
+
+    const cleaned = cleanBlocks(content);
+    if (cleaned.length === 0) {
+      return "Add at least one paragraph or media block.";
+    }
+
+    const excerptValue =
+      excerpt.trim() || deriveExcerpt(cleaned, title);
+    if (excerptValue.length < 10) {
+      return "Add an excerpt of at least 10 characters, or more article text.";
     }
     return null;
   };
 
-  const buildPayload = () => {
-    const cleaned: BlockDraft[] = blocks
-      .map((block) => {
-        if (block.type === "bulletList" || block.type === "orderedList") {
-          const items = block.items.map((item) => item.trim()).filter(Boolean);
-          return { ...block, items } as BlockDraft;
-        }
-        if (block.type === "image") {
-          return {
-            ...block,
-            caption: block.caption?.trim() || undefined,
-          } as BlockDraft;
-        }
-        return block;
-      })
-      .filter((block) => {
-        if (block.type === "bulletList" || block.type === "orderedList")
-          return block.items.length > 0;
-        if (block.type === "image") return Boolean(block.url);
-        return Boolean(block.text.trim());
-      });
-
+  const buildPayload = (content: BlogBlock[]) => {
+    const cleaned = cleanBlocks(content);
     return {
       title: title.trim(),
-      slug: slug.trim() || undefined,
-      excerpt: excerpt.trim(),
+      slug: slugify(slug || title) || undefined,
+      excerpt: excerpt.trim() || deriveExcerpt(cleaned, title),
       subtitle: subtitle.trim() || undefined,
       content: cleaned,
       category: categoryId,
       authorName: authorName.trim(),
       coverImage: coverImage.url
-        ? { url: coverImage.url, publicId: coverImage.publicId, alt: coverImage.alt }
+        ? {
+            url: coverImage.url,
+            publicId: coverImage.publicId,
+            alt: coverImage.alt,
+          }
         : null,
       socialImage: socialImage.url
         ? {
@@ -346,71 +522,77 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
     };
   };
 
-  const handleSave = async () => {
-    const validationError = validate();
+  const saveArticle = async (): Promise<SavedArticle | null> => {
+    const latest = getLatestBlocks();
+    const content = cleanBlocks(latest);
+    const validationError = validateContent(content);
     if (validationError) {
       setError(validationError);
-      return;
+      return null;
     }
 
     setSaving(true);
     setError(null);
     setSuccessMsg(null);
     try {
-      const payload = buildPayload();
       const res = await fetch(
-        post ? `/api/admin/blogs/${post.id}` : "/api/admin/blogs",
+        postId ? `/api/admin/blogs/${postId}` : "/api/admin/blogs",
         {
-          method: post ? "PATCH" : "POST",
+          method: postId ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(buildPayload(content)),
         }
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
         setError(json.message || "Failed to save the article.");
-        return;
+        return null;
       }
 
-      baselineRef.current = snapshot();
-
-      if (!post) {
-        const created: AdminBlogDetailDTO | undefined = json.data?.post;
-        if (created) {
-          router.push(`/admin/blogs/${created.id}`);
-          return;
-        }
+      const saved = json.data?.post as AdminBlogDetailDTO | undefined;
+      const savedId = saved?.id ?? postId;
+      if (!savedId) {
+        setError("The article was saved but its ID was missing.");
+        return null;
       }
 
-      setStatus(json.data?.post?.status ?? status);
+      setPostId(savedId);
+      setBlocks(content);
+      if (saved) {
+        setStatus(saved.status);
+        setSlug(saved.slug);
+        setScheduledAt(saved.scheduledAt ?? null);
+      }
+      baselineRef.current = null;
       setSuccessMsg("Article saved.");
+      return { id: savedId, blocks: content };
     } catch {
       setError("Unable to save the article. Please try again.");
+      return null;
     } finally {
       setSaving(false);
     }
   };
 
-  const handleStatusAction = async (
-    next: Exclude<BlogStatus, "scheduled"> | "scheduled",
-    options?: { scheduledAt?: string }
-  ) => {
-    if (!post) return;
+  const handleSave = async () => {
+    const created = !postId;
+    const saved = await saveArticle();
+    if (!saved) return;
+    if (created) router.replace(`/admin/blogs/${saved.id}`);
+  };
 
+  const changeStatus = async (
+    id: string,
+    next: BlogStatus,
+    scheduleIso?: string
+  ): Promise<boolean> => {
     setStatusAction(next);
     setError(null);
     setSuccessMsg(null);
     try {
       const body: Record<string, unknown> = { status: next };
-      if (next === "scheduled") {
-        if (!options?.scheduledAt) {
-          setError("Pick a future date and time to schedule this article.");
-          return;
-        }
-        body.scheduledAt = options.scheduledAt;
-      }
-
-      const res = await fetch(`/api/admin/blogs/${post.id}/status`, {
+      if (next === "scheduled") body.scheduledAt = scheduleIso;
+      const res = await fetch(`/api/admin/blogs/${id}/status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -418,12 +600,17 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
       const json = await res.json();
       if (!res.ok || !json.success) {
         setError(json.message || "Failed to update the status.");
-        return;
+        return false;
       }
-
-      setStatus(json.data?.post?.status ?? next);
-      if (next === "scheduled" && options?.scheduledAt) {
-        setScheduledAtLocal(toLocalInputValue(options.scheduledAt));
+      const updated = json.data?.post as AdminBlogDetailDTO | undefined;
+      setStatus(updated?.status ?? next);
+      if (typeof updated?.isFeatured === "boolean") {
+        setIsFeatured(updated.isFeatured);
+      }
+      if (next === "scheduled") {
+        setScheduledAt(scheduleIso ?? updated?.scheduledAt ?? null);
+      } else {
+        setScheduledAt(updated?.scheduledAt ?? null);
       }
       setSuccessMsg(
         next === "published"
@@ -434,35 +621,60 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
               ? "The article was unpublished."
               : "The article was moved back to draft."
       );
-      setScheduleOpen(false);
       router.refresh();
+      return true;
     } catch {
       setError("Unable to update the status. Please try again.");
+      return false;
     } finally {
       setStatusAction(null);
     }
   };
 
-  const submitSchedule = () => {
-    if (!scheduledAtLocal) {
-      setError("Pick a future date and time to schedule this article.");
+  const handlePublish = async () => {
+    const created = !postId;
+    const saved = await saveArticle();
+    if (!saved) return;
+    const ok = await changeStatus(saved.id, "published");
+    if (ok && created) router.replace(`/admin/blogs/${saved.id}`);
+  };
+
+  const openScheduleDialog = () => {
+    const base = scheduledAt
+      ? new Date(scheduledAt)
+      : new Date(Date.now() + 60 * 60 * 1000);
+    setScheduleInput(toLocalInputValue(base.toISOString()));
+    setScheduleError(null);
+    setDialog("schedule");
+  };
+
+  const submitSchedule = async () => {
+    if (!scheduleInput) {
+      setScheduleError("Pick a date and time to schedule the article.");
       return;
     }
-    const when = new Date(scheduledAtLocal);
+    const when = new Date(scheduleInput);
     if (Number.isNaN(when.getTime()) || when.getTime() <= Date.now()) {
-      setError("Schedule time must be in the future.");
+      setScheduleError("Schedule time must be in the future.");
       return;
     }
-    handleStatusAction("scheduled", { scheduledAt: when.toISOString() });
+    const created = !postId;
+    const saved = await saveArticle();
+    if (!saved) return;
+    const ok = await changeStatus(saved.id, "scheduled", when.toISOString());
+    if (ok) {
+      setDialog(null);
+      if (created) router.replace(`/admin/blogs/${saved.id}`);
+    }
   };
 
   const handleToggleFeature = async () => {
-    if (!post) return;
+    if (!postId) return;
     setTogglingFeature(true);
     setError(null);
     setSuccessMsg(null);
     try {
-      const res = await fetch(`/api/admin/blogs/${post.id}/feature`, {
+      const res = await fetch(`/api/admin/blogs/${postId}/feature`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isFeatured: !isFeatured }),
@@ -478,6 +690,7 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
           ? "Article featured on the blog page."
           : "Article removed from featured."
       );
+      router.refresh();
     } catch {
       setError("Unable to update the featured flag. Please try again.");
     } finally {
@@ -485,46 +698,48 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
     }
   };
 
-  const previewBlocks = useMemo(
-    () =>
-      (blocks as BlogBlock[]).filter((block) => {
-        if (block.type === "bulletList" || block.type === "orderedList")
-          return block.items.some((item) => item.trim());
-        if (block.type === "image") return Boolean(block.url);
-        return Boolean(block.text?.trim());
-      }),
-    [blocks]
-  );
+  const handleEditorKeyDown = (
+    event: React.KeyboardEvent<HTMLDivElement>
+  ) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      void handleSave();
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm text-gray-500">
+    <div className="mx-auto max-w-6xl space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <Link
             href="/admin/blogs"
-            className="inline-flex items-center gap-1 font-medium text-emerald-600 hover:text-emerald-700"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600 transition hover:text-emerald-700"
           >
             <Undo2 className="h-4 w-4" />
             Back to articles
           </Link>
-          {post && (
-            <span className="hidden sm:inline">
-              · Editing &ldquo;{post.title}&rdquo;
-            </span>
-          )}
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-gray-900">
+            {postId ? "Edit article" : "Write an article"}
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            {title.trim()
+              ? title
+              : "A clean editor with safe embeds and responsive images."}
+          </p>
         </div>
+
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => setPreviewOpen(true)}
+            onClick={() => setDialog("preview")}
             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
           >
             <Eye className="h-4 w-4" />
             Preview
           </button>
-          {post && status === "published" && (
+          {postId && status === "published" && (
             <Link
-              href={`/blogs/${post.slug}`}
+              href={`/blogs/${slug || post?.slug || ""}`}
               target="_blank"
               className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
             >
@@ -535,19 +750,15 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving}
+            disabled={busy}
             className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
           >
             {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Saving…
-              </>
-            ) : post ? (
-              "Save Changes"
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              "Save Draft"
+              <Save className="h-4 w-4" />
             )}
+            {saving ? "Saving." : "Save"}
           </button>
         </div>
       </div>
@@ -566,19 +777,25 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
         </div>
       )}
 
-      {post && (
+      {postId && (
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-              Status
+            <span
+              className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${STATUS_STYLES[status]}`}
+            >
+              {STATUS_LABELS[status]}
             </span>
-            <StatusBadge status={status} />
+            {status === "scheduled" && scheduledAt && (
+              <span className="text-xs text-gray-500">
+                Goes live {new Date(scheduledAt).toLocaleString("en-IN")}
+              </span>
+            )}
             <div className="ml-auto flex flex-wrap items-center gap-2">
               {status !== "published" && (
                 <button
                   type="button"
-                  onClick={() => handleStatusAction("published")}
-                  disabled={statusAction !== null || saving}
+                  onClick={handlePublish}
+                  disabled={busy}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
                 >
                   {statusAction === "published" ? (
@@ -589,33 +806,33 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
                   {status === "scheduled" ? "Publish now" : "Publish"}
                 </button>
               )}
-              {status === "scheduled" && (
-                <button
-                  type="button"
-                  onClick={() => setScheduleOpen(true)}
-                  disabled={statusAction !== null}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
-                >
-                  <CalendarClock className="h-3.5 w-3.5" />
-                  Reschedule
-                </button>
-              )}
               {status !== "scheduled" && status !== "published" && (
                 <button
                   type="button"
-                  onClick={() => setScheduleOpen(true)}
-                  disabled={statusAction !== null}
+                  onClick={openScheduleDialog}
+                  disabled={busy}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 disabled:opacity-50"
                 >
                   <CalendarClock className="h-3.5 w-3.5" />
                   Schedule
                 </button>
               )}
+              {status === "scheduled" && (
+                <button
+                  type="button"
+                  onClick={openScheduleDialog}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
+                >
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  Reschedule
+                </button>
+              )}
               {status === "published" && (
                 <button
                   type="button"
-                  onClick={() => handleStatusAction("archived")}
-                  disabled={statusAction !== null}
+                  onClick={() => void changeStatus(postId, "archived")}
+                  disabled={busy}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 disabled:opacity-50"
                 >
                   {statusAction === "archived" ? (
@@ -626,12 +843,12 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
                   Unpublish
                 </button>
               )}
-              {(status === "archived" || status === "published") && (
+              {(status === "published" || status === "archived") && (
                 <button
                   type="button"
-                  onClick={() => handleStatusAction("draft")}
-                  disabled={statusAction !== null}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 disabled:opacity-50"
+                  onClick={() => void changeStatus(postId, "draft")}
+                  disabled={busy}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 disabled:opacity-50"
                 >
                   Back to draft
                 </button>
@@ -640,7 +857,7 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
                 <button
                   type="button"
                   onClick={handleToggleFeature}
-                  disabled={togglingFeature}
+                  disabled={togglingFeature || busy}
                   className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 ${
                     isFeatured
                       ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
@@ -651,7 +868,9 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
                     <Star
-                      className={`h-3.5 w-3.5 ${isFeatured ? "fill-amber-400" : ""}`}
+                      className={`h-3.5 w-3.5 ${
+                        isFeatured ? "fill-amber-400" : ""
+                      }`}
                     />
                   )}
                   {isFeatured ? "Featured" : "Feature"}
@@ -659,190 +878,129 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
               )}
             </div>
           </div>
-          {status === "scheduled" && post.scheduledAt && (
-            <p className="mt-2 text-xs text-gray-500">
-              Goes live automatically{" "}
-              {new Date(post.scheduledAt).toLocaleString("en-IN")}.
-            </p>
-          )}
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400">
-              Title
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => handleTitleChange(e.target.value)}
-              maxLength={180}
-              placeholder="e.g. How to recycle household scrap the right way"
-              className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-lg font-semibold text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-            />
-
-            <label className="mt-5 block text-xs font-semibold uppercase tracking-wide text-gray-400">
-              Slug {slugTouched && <span className="normal-case">(manual)</span>}
-            </label>
-            <input
-              type="text"
-              value={slug}
-              onChange={(e) => handleSlugChange(e.target.value)}
-              maxLength={200}
-              placeholder="auto-generated-from-title"
-              className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-            />
-            {!slugTouched && slug && (
-              <p className="mt-1 text-xs text-gray-400">
-                Public URL: /blogs/{slug}
-              </p>
-            )}
-
-            <label className="mt-5 block text-xs font-semibold uppercase tracking-wide text-gray-400">
-              Subtitle <span className="normal-case text-gray-400">(optional)</span>
-            </label>
-            <input
-              type="text"
-              value={subtitle}
-              onChange={(e) => setSubtitle(e.target.value)}
-              maxLength={300}
-              className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-            />
-
-            <label className="mt-5 block text-xs font-semibold uppercase tracking-wide text-gray-400">
-              Excerpt
-            </label>
-            <textarea
-              value={excerpt}
-              onChange={(e) => setExcerpt(e.target.value)}
-              rows={3}
-              maxLength={600}
-              placeholder="A short summary shown on listing cards and in search results."
-              className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-            />
-            <p className="mt-1 text-right text-xs text-gray-400">
-              {excerpt.trim().length}/600
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 className="text-sm font-semibold text-gray-900">
-                  Article content
-                </h2>
-                <p className="mt-0.5 text-xs text-gray-500">
-                  {wordCount} word{wordCount === 1 ? "" : "s"} ·{" "}
-                  {readingTime} min read · {blocks.length} block
-                  {blocks.length === 1 ? "" : "s"}
-                </p>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-5">
+          <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className="p-4 sm:p-6">
+              <input
+                type="text"
+                value={title}
+                onChange={(event) => handleTitleChange(event.target.value)}
+                maxLength={180}
+                placeholder="Article title"
+                className="w-full border-none bg-transparent text-2xl font-bold text-gray-900 placeholder:text-gray-300 focus:outline-none sm:text-3xl"
+              />
+              <input
+                type="text"
+                value={subtitle}
+                onChange={(event) => setSubtitle(event.target.value)}
+                maxLength={300}
+                placeholder="Add a short subtitle (optional)"
+                className="mt-2 w-full border-none bg-transparent text-base text-gray-600 placeholder:text-gray-300 focus:outline-none"
+              />
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+                <span className="inline-flex items-center gap-1">
+                  <Globe2 className="h-3.5 w-3.5" />
+                  /blogs/{slug || slugify(title) || "your-article"}
+                </span>
+                <span>
+                  {wordCount} word{wordCount === 1 ? "" : "s"}
+                </span>
+                <span>{readingTime} min read</span>
               </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              {(
-                [
-                  "heading",
-                  "paragraph",
-                  "bulletList",
-                  "orderedList",
-                  "blockquote",
-                  "image",
-                ] as const
-              ).map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => addBlock(type)}
-                  className="inline-flex items-center gap-1 rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-emerald-400 hover:text-emerald-700"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  {BLOCK_TYPE_LABELS[type]}
-                </button>
-              ))}
+            <BlogEditorToolbar
+              formatState={formatState}
+              applyCommand={applyCommand}
+              onAddImage={openImageDialog}
+              onAddEmbed={() => {
+                saveSelection();
+                setDialog("embed");
+              }}
+              onAddLink={() => {
+                saveSelection();
+                setDialog("link");
+              }}
+              onAddLinkCard={() => {
+                saveSelection();
+                setDialog("linkCard");
+              }}
+            />
+
+            <div
+              ref={editorRef}
+              contentEditable
+              suppressContentEditableWarning
+              role="textbox"
+              aria-multiline="true"
+              aria-label="Article content"
+              onInput={syncFromEditor}
+              onKeyUp={refreshFormatState}
+              onMouseUp={refreshFormatState}
+              onFocus={refreshFormatState}
+              onKeyDown={handleEditorKeyDown}
+              onClick={handleRemoveMedia}
+              onPaste={(event) => {
+                event.preventDefault();
+                const text = event.clipboardData.getData("text/plain");
+                if (text) {
+                  document.execCommand("insertText", false, text);
+                  syncFromEditor();
+                }
+              }}
+              className="blog-editor-surface min-h-[460px] px-4 py-5 text-gray-800 focus:outline-none sm:px-6"
+            />
+          </section>
+
+          <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">
+                  Listing excerpt
+                </h2>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  Used on cards and in search results.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setExcerpt(deriveExcerpt(blocks, title))
+                }
+                className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
+              >
+                Use content
+              </button>
             </div>
-
-            <div className="mt-4 space-y-3">
-              {blocks.map((block, index) => (
-                <div
-                  key={index}
-                  className="rounded-xl border border-gray-200 bg-gray-50/60 p-3"
-                >
-                  <div className="mb-2 flex items-center gap-2">
-                    <GripVertical className="h-4 w-4 text-gray-300" />
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      {BLOCK_TYPE_LABELS[block.type]}
-                    </span>
-                    <div className="ml-auto flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => moveBlock(index, -1)}
-                        disabled={index === 0}
-                        title="Move up"
-                        className="rounded-md p-1 text-gray-400 transition hover:bg-white hover:text-gray-700 disabled:opacity-30"
-                      >
-                        <ArrowUp className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveBlock(index, 1)}
-                        disabled={index === blocks.length - 1}
-                        title="Move down"
-                        className="rounded-md p-1 text-gray-400 transition hover:bg-white hover:text-gray-700 disabled:opacity-30"
-                      >
-                        <ArrowDown className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeBlock(index)}
-                        title="Delete block"
-                        className="rounded-md p-1 text-gray-400 transition hover:bg-red-50 hover:text-red-600"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <BlockFields
-                    block={block}
-                    uploading={uploadingKey === `block-${index}`}
-                    onChange={(patch) => updateBlock(index, patch)}
-                    onUpload={(file) =>
-                      handleFieldUpload(`block-${index}`, file, (image) =>
-                        updateBlock(index, {
-                          url: image.url,
-                          publicId: image.publicId,
-                        } as Partial<BlockDraft>)
-                      )
-                    }
-                  />
-                </div>
-              ))}
-
-              {blocks.length === 0 && (
-                <div className="rounded-xl border border-dashed border-gray-300 py-10 text-center text-sm text-gray-500">
-                  No content yet — add your first block above.
-                </div>
-              )}
-            </div>
-          </div>
+            <textarea
+              value={excerpt}
+              onChange={(event) => setExcerpt(event.target.value)}
+              rows={3}
+              maxLength={600}
+              placeholder="Leave blank to generate a short excerpt from the article."
+              className={`${inputClass} mt-3`}
+            />
+            <p className="mt-1 text-right text-xs text-gray-400">
+              {effectiveExcerpt.trim().length}/600
+            </p>
+          </section>
         </div>
 
-        <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <aside className="space-y-5 xl:sticky xl:top-5 xl:self-start">
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-gray-900">Details</h2>
 
-            <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-gray-400">
-              Category
-            </label>
+            <label className={`${labelClass} mt-4`}>Category</label>
             <select
               value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              onChange={(event) => setCategoryId(event.target.value)}
+              className={`${inputClass} mt-1.5`}
             >
-              <option value="">Choose a category…</option>
+              <option value="">Choose a category.</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
@@ -851,93 +1009,136 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
               ))}
             </select>
 
-            <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-gray-400">
-              Author name
-            </label>
+            <label className={`${labelClass} mt-4`}>Author name</label>
             <input
               type="text"
               value={authorName}
-              onChange={(e) => setAuthorName(e.target.value)}
+              onChange={(event) => setAuthorName(event.target.value)}
               maxLength={120}
               placeholder="e.g. Scrapi Team"
-              className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className={`${inputClass} mt-1.5`}
+            />
+
+            <label className={`${labelClass} mt-4`}>
+              Slug {slugTouched && <span className="normal-case">(manual)</span>}
+            </label>
+            <input
+              type="text"
+              value={slug}
+              onChange={(event) => handleSlugChange(event.target.value)}
+              maxLength={200}
+              placeholder="auto-generated-from-title"
+              className={`${inputClass} mt-1.5`}
             />
           </div>
 
           <ImageField
             label="Cover image"
-            hint="Shown on listing cards and at the top of the article. JPG/PNG/WebP up to 5 MB."
+            hint="Shown on cards and at the top of the article. JPG/PNG/WebP up to 5 MB."
             value={coverImage}
             uploading={uploadingKey === "cover"}
-            onAltChange={(alt) => setCoverImage((prev) => ({ ...prev, alt }))}
-            onRemove={() => setCoverImage(EMPTY_IMAGE)}
-            onPick={(file) =>
-              handleFieldUpload("cover", file, (image) =>
-                setCoverImage((prev) => ({ ...prev, url: image.url, publicId: image.publicId }))
-              )
+            onAltChange={(alt) =>
+              setCoverImage((previous) => ({ ...previous, alt }))
             }
+            onRemove={() => setCoverImage(EMPTY_IMAGE)}
+            onPick={(file) => void uploadFieldImage("cover", file)}
           />
 
           <ImageField
             label="Social share image"
-            hint="Optional. Used for WhatsApp/Twitter previews. Defaults to the cover image."
+            hint="Optional. Used for WhatsApp and social previews. Falls back to the cover."
             value={socialImage}
             uploading={uploadingKey === "social"}
-            onAltChange={(alt) => setSocialImage((prev) => ({ ...prev, alt }))}
-            onRemove={() => setSocialImage(EMPTY_IMAGE)}
-            onPick={(file) =>
-              handleFieldUpload("social", file, (image) =>
-                setSocialImage((prev) => ({
-                  ...prev,
-                  url: image.url,
-                  publicId: image.publicId,
-                }))
-              )
+            onAltChange={(alt) =>
+              setSocialImage((previous) => ({ ...previous, alt }))
             }
+            onRemove={() => setSocialImage(EMPTY_IMAGE)}
+            onPick={(file) => void uploadFieldImage("social", file)}
           />
 
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-gray-900">
               Search metadata
             </h2>
             <p className="mt-1 text-xs text-gray-500">
-              Optional. Falls back to the title and excerpt when left empty.
+              Optional. Falls back to the title and excerpt.
             </p>
 
-            <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <label className={`${labelClass} mt-4`}>
               Meta title ({seoMetaTitle.length}/70)
             </label>
             <input
               type="text"
               value={seoMetaTitle}
-              onChange={(e) => setSeoMetaTitle(e.target.value)}
+              onChange={(event) => setSeoMetaTitle(event.target.value)}
               maxLength={70}
-              className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className={`${inputClass} mt-1.5`}
             />
 
-            <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <label className={`${labelClass} mt-4`}>
               Meta description ({seoMetaDescription.length}/180)
             </label>
             <textarea
               value={seoMetaDescription}
-              onChange={(e) => setSeoMetaDescription(e.target.value)}
+              onChange={(event) => setSeoMetaDescription(event.target.value)}
               rows={3}
               maxLength={180}
-              className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className={`${inputClass} mt-1.5`}
             />
           </div>
-        </div>
+        </aside>
       </div>
 
+      {dialog === "image" && (
+        <ImageDialog
+          open
+          busy={imageBusy}
+          error={imageError}
+          onClose={() => setDialog(null)}
+          onInsert={(file, alt, caption) =>
+            void handleInsertImage(file, alt, caption)
+          }
+        />
+      )}
+
+      {dialog === "embed" && (
+        <EmbedDialog
+          open
+          onClose={() => setDialog(null)}
+          onInsert={handleInsertEmbed}
+        />
+      )}
+
+      {dialog === "link" && (
+        <InlineLinkDialog
+          open
+          selectedText={selectedText}
+          onClose={() => setDialog(null)}
+          onInsert={handleInsertInlineLink}
+        />
+      )}
+
+      {dialog === "linkCard" && (
+        <LinkCardDialog
+          open
+          onClose={() => setDialog(null)}
+          onInsert={handleInsertLinkCard}
+        />
+      )}
+
       <AdminModal
-        open={scheduleOpen}
-        onClose={() => setScheduleOpen(false)}
-        title={status === "scheduled" ? "Reschedule article" : "Schedule article"}
+        open={dialog === "schedule"}
+        onClose={() => setDialog(null)}
+        title={
+          status === "scheduled"
+            ? "Reschedule article"
+            : "Schedule article"
+        }
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            The article goes live automatically at the chosen time (IST) — no
-            further manual action needed.
+            The article goes live automatically at the chosen time. No further
+            manual action is needed.
           </p>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -945,34 +1146,46 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
             </label>
             <input
               type="datetime-local"
-              value={scheduledAtLocal}
-              onChange={(e) => setScheduledAtLocal(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              value={scheduleInput}
+              onChange={(event) => {
+                setScheduleInput(event.target.value);
+                setScheduleError(null);
+              }}
+              className={inputClass}
             />
           </div>
+          {scheduleError && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {scheduleError}
+            </p>
+          )}
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
-              onClick={() => setScheduleOpen(false)}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              onClick={() => setDialog(null)}
+              disabled={busy}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="button"
-              onClick={submitSchedule}
-              disabled={statusAction !== null}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              onClick={() => void submitSchedule()}
+              disabled={busy}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
             >
-              {statusAction === "scheduled" ? "Scheduling…" : "Schedule"}
+              {statusAction === "scheduled" && (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              )}
+              Schedule
             </button>
           </div>
         </div>
       </AdminModal>
 
       <AdminModal
-        open={previewOpen}
-        onClose={() => setPreviewOpen(false)}
+        open={dialog === "preview"}
+        onClose={() => setDialog(null)}
         title="Preview"
         size="xl"
       >
@@ -989,7 +1202,7 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
             <span>{authorName || "Unknown author"}</span>
             <span>
-              {categories.find((c) => c.id === categoryId)?.name ??
+              {categories.find((category) => category.id === categoryId)?.name ??
                 "No category"}
             </span>
             <span>
@@ -1008,9 +1221,9 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
             </div>
           )}
 
-          {excerpt && (
+          {effectiveExcerpt.trim() && (
             <p className="mt-4 rounded-xl bg-gray-50 px-4 py-3 text-sm italic text-gray-600">
-              {excerpt}
+              {effectiveExcerpt}
             </p>
           )}
 
@@ -1027,280 +1240,4 @@ export default function BlogEditor({ categories, post }: BlogEditorProps) {
       </AdminModal>
     </div>
   );
-}
-
-function StatusBadge({ status }: { status: BlogStatus }) {
-  const styles: Record<BlogStatus, string> = {
-    draft: "bg-gray-100 text-gray-600 ring-gray-200",
-    scheduled: "bg-blue-50 text-blue-700 ring-blue-100",
-    published: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-    archived: "bg-amber-50 text-amber-700 ring-amber-100",
-  };
-  const labels: Record<BlogStatus, string> = {
-    draft: "Draft",
-    scheduled: "Scheduled",
-    published: "Published",
-    archived: "Unpublished",
-  };
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${styles[status]}`}
-    >
-      {labels[status]}
-    </span>
-  );
-}
-
-function ImageField({
-  label,
-  hint,
-  value,
-  uploading,
-  onAltChange,
-  onRemove,
-  onPick,
-}: {
-  label: string;
-  hint: string;
-  value: ImageValue;
-  uploading: boolean;
-  onAltChange: (alt: string) => void;
-  onRemove: () => void;
-  onPick: (file: File) => void;
-}) {
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-      <h2 className="text-sm font-semibold text-gray-900">{label}</h2>
-      <p className="mt-1 text-xs text-gray-500">{hint}</p>
-
-      <div className="mt-3 flex items-start gap-3">
-        <div className="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-          {value.url ? (
-            <RemoteImage
-              src={value.url}
-              alt={value.alt || `${label} preview`}
-              loading="eager"
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <ImagePlus className="h-5 w-5 text-gray-300" />
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50">
-            {uploading ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Uploading…
-              </>
-            ) : value.url ? (
-              "Replace"
-            ) : (
-              "Upload image"
-            )}
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              disabled={uploading}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                if (file) onPick(file);
-              }}
-            />
-          </label>
-          {value.url && !uploading && (
-            <button
-              type="button"
-              onClick={onRemove}
-              className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50"
-            >
-              <X className="h-3.5 w-3.5" />
-              Remove
-            </button>
-          )}
-        </div>
-      </div>
-
-      <label className="mt-3 block text-xs font-semibold uppercase tracking-wide text-gray-400">
-        Alt text
-      </label>
-      <input
-        type="text"
-        value={value.alt}
-        onChange={(e) => onAltChange(e.target.value)}
-        maxLength={300}
-        placeholder="Describe the image for accessibility"
-        className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-      />
-    </div>
-  );
-}
-
-function BlockFields({
-  block,
-  uploading,
-  onChange,
-  onUpload,
-}: {
-  block: BlockDraft;
-  uploading: boolean;
-  onChange: (patch: Partial<BlockDraft>) => void;
-  onUpload: (file: File) => void;
-}) {
-  if (block.type === "heading") {
-    return (
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <select
-          value={block.level}
-          onChange={(e) =>
-            onChange({ level: Number(e.target.value) as 2 | 3 | 4 })
-          }
-          className="rounded-lg border border-gray-300 px-2 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-        >
-          <option value={2}>H2</option>
-          <option value={3}>H3</option>
-          <option value={4}>H4</option>
-        </select>
-        <input
-          type="text"
-          value={block.text}
-          onChange={(e) => onChange({ text: e.target.value })}
-          maxLength={300}
-          placeholder="Section heading"
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-        />
-      </div>
-    );
-  }
-
-  if (block.type === "paragraph" || block.type === "blockquote") {
-    return (
-      <textarea
-        value={block.text}
-        onChange={(e) => onChange({ text: e.target.value })}
-        rows={3}
-        maxLength={block.type === "paragraph" ? 6000 : 3000}
-        placeholder={
-          block.type === "paragraph"
-            ? "Write a paragraph. **bold**, *italic* and [links](https://…) are supported."
-            : "A notable quote or callout…"
-        }
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-      />
-    );
-  }
-
-  if (block.type === "bulletList" || block.type === "orderedList") {
-    return (
-      <div className="space-y-2">
-        {block.items.map((item, itemIndex) => (
-          <div key={itemIndex} className="flex items-start gap-2">
-            <span className="mt-2 w-5 shrink-0 text-right text-xs text-gray-400">
-              {itemIndex + 1}.
-            </span>
-            <input
-              type="text"
-              value={item}
-              onChange={(e) => {
-                const items = [...block.items];
-                items[itemIndex] = e.target.value;
-                onChange({ items });
-              }}
-              maxLength={1000}
-              placeholder="List item"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                const items = block.items.filter((_, i) => i !== itemIndex);
-                onChange({ items: items.length ? items : [""] });
-              }}
-              title="Remove item"
-              className="mt-1.5 rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        ))}
-        <button
-          type="button"
-          onClick={() => onChange({ items: [...block.items, ""] })}
-          className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Add item
-        </button>
-      </div>
-    );
-  }
-
-  // image
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-3">
-        {block.url ? (
-          <div className="h-20 w-28 overflow-hidden rounded-lg border border-gray-200 bg-white">
-            <RemoteImage
-              src={block.url}
-              alt={block.alt || "Block image preview"}
-              loading="eager"
-              className="h-full w-full object-cover"
-            />
-          </div>
-        ) : (
-          <div className="flex h-20 w-28 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white">
-            <ImagePlus className="h-5 w-5 text-gray-300" />
-          </div>
-        )}
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50">
-          {uploading ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Uploading…
-            </>
-          ) : block.url ? (
-            "Replace image"
-          ) : (
-            "Upload image"
-          )}
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            disabled={uploading}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              e.target.value = "";
-              if (file) onUpload(file);
-            }}
-          />
-        </label>
-      </div>
-      <input
-        type="text"
-        value={block.alt ?? ""}
-        onChange={(e) => onChange({ alt: e.target.value } as Partial<BlockDraft>)}
-        maxLength={300}
-        placeholder="Alt text"
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-      />
-      <input
-        type="text"
-        value={block.caption ?? ""}
-        onChange={(e) =>
-          onChange({ caption: e.target.value } as Partial<BlockDraft>)
-        }
-        maxLength={300}
-        placeholder="Caption (optional)"
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-      />
-    </div>
-  );
-}
-
-function countWordsSafe(blocks: BlockDraft[]): number {
-  return countWords(extractPlainText(blocks as unknown[]));
 }

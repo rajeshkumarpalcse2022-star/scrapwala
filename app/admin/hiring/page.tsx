@@ -10,7 +10,9 @@ import {
   Download,
   Eye,
   FileText,
+  ImagePlus,
   Loader2,
+  Megaphone,
   Pencil,
   Plus,
   Search,
@@ -21,6 +23,7 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminModal from "@/components/admin/AdminModal";
 import AdminEmptyState from "@/components/admin/AdminEmptyState";
 import AdminStatusBadge from "@/components/admin/AdminStatusBadge";
+import RemoteImage from "@/components/common/RemoteImage";
 import { formatHiringPrice } from "@/lib/utils/hiring-fields";
 
 interface FormRow {
@@ -55,6 +58,12 @@ interface ApplicationRow {
     currency: string;
     paidAt?: string;
   };
+}
+
+interface CareersNotice {
+  imageUrl: string;
+  publicId?: string;
+  updatedAt: string;
 }
 
 interface Pagination {
@@ -127,7 +136,7 @@ function applicationFeeLabel(payment?: ApplicationRow["payment"]): {
 
 export default function AdminHiringPage() {
   const router = useRouter();
-  const [tab, setTab] = useState<"forms" | "applications">("forms");
+  const [tab, setTab] = useState<"forms" | "applications" | "notice">("forms");
 
   const [forms, setForms] = useState<FormRow[]>([]);
   const [formsLoading, setFormsLoading] = useState(true);
@@ -158,6 +167,13 @@ export default function AdminHiringPage() {
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+
+  const [careersNotice, setCareersNotice] = useState<CareersNotice | null>(null);
+  const [careersNoticeLoading, setCareersNoticeLoading] = useState(false);
+  const [careersNoticeError, setCareersNoticeError] = useState<string | null>(null);
+  const [noticeUploading, setNoticeUploading] = useState(false);
+  const [noticeRemoving, setNoticeRemoving] = useState(false);
+  const [confirmNoticeRemove, setConfirmNoticeRemove] = useState(false);
 
   const refreshLists = useCallback(() => setReloadKey((key) => key + 1), []);
 
@@ -256,6 +272,47 @@ export default function AdminHiringPage() {
     }, 400);
     return () => clearTimeout(timer);
   }, [search]);
+
+  useEffect(() => {
+    if (tab !== "notice") return;
+    let cancelled = false;
+
+    async function loadNotice() {
+      setCareersNoticeLoading(true);
+      setCareersNoticeError(null);
+      try {
+        const response = await fetch("/api/admin/hiring/notice", {
+          cache: "no-store",
+        });
+        if (response.status === 401) {
+          router.push("/");
+          return;
+        }
+        if (response.status === 403) {
+          setCareersNoticeError("Admin access required");
+          return;
+        }
+        const json = await response.json();
+        if (cancelled) return;
+        if (!json.success) {
+          setCareersNoticeError(json.message || "Failed to load the notice image");
+          return;
+        }
+        setCareersNotice(json.data?.notice ?? null);
+      } catch {
+        if (!cancelled) {
+          setCareersNoticeError("Failed to load the notice image. Please try again.");
+        }
+      } finally {
+        if (!cancelled) setCareersNoticeLoading(false);
+      }
+    }
+
+    loadNotice();
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, router, reloadKey]);
 
   const flash = useCallback((message: string) => {
     setNotice(message);
@@ -370,6 +427,74 @@ export default function AdminHiringPage() {
     }
   };
 
+  const handleNoticeUpload = async (file: File) => {
+    setCareersNoticeError(null);
+    setConfirmNoticeRemove(false);
+
+    if (!file.type.startsWith("image/")) {
+      setCareersNoticeError("Please choose a JPG, PNG or WebP image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setCareersNoticeError("Notice image must be smaller than 5 MB.");
+      return;
+    }
+
+    setNoticeUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/admin/hiring/notice", {
+        method: "POST",
+        body: formData,
+      });
+      if (response.status === 401) {
+        router.push("/");
+        return;
+      }
+      const json = await response.json().catch(() => null);
+      if (!response.ok || !json?.success) {
+        setCareersNoticeError(json?.message || "Failed to save the notice image");
+        return;
+      }
+
+      setCareersNotice(json.data?.notice ?? null);
+      flash("Careers notice image saved.");
+    } catch {
+      setCareersNoticeError("Failed to save the notice image. Please try again.");
+    } finally {
+      setNoticeUploading(false);
+    }
+  };
+
+  const handleNoticeRemove = async () => {
+    setCareersNoticeError(null);
+    setNoticeRemoving(true);
+    try {
+      const response = await fetch("/api/admin/hiring/notice", {
+        method: "DELETE",
+      });
+      if (response.status === 401) {
+        router.push("/");
+        return;
+      }
+      const json = await response.json().catch(() => null);
+      if (!response.ok || !json?.success) {
+        setCareersNoticeError(json?.message || "Failed to remove the notice image");
+        return;
+      }
+
+      setCareersNotice(null);
+      setConfirmNoticeRemove(false);
+      flash("Careers notice image removed.");
+    } catch {
+      setCareersNoticeError("Failed to remove the notice image. Please try again.");
+    } finally {
+      setNoticeRemoving(false);
+    }
+  };
+
   const totalApplications = useMemo(
     () => forms.reduce((sum, form) => sum + form.applicationCount, 0),
     [forms]
@@ -408,6 +533,7 @@ export default function AdminHiringPage() {
               key: "applications",
               label: `Applications (${pagination.total || totalApplications})`,
             },
+            { key: "notice", label: "Notice" },
           ] as const
         ).map((item) => (
           <button
@@ -809,6 +935,143 @@ export default function AdminHiringPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Notice tab ── */}
+      {tab === "notice" && (
+        <div className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+              <Megaphone className="h-5 w-5" />
+            </span>
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">
+                Careers page notice
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-500">
+                Upload one notice image. It will appear in a clean card above the
+                open positions on the careers page. Only the image is shown — no
+                title, text or link is added.
+              </p>
+            </div>
+          </div>
+
+          {careersNoticeError && (
+            <p className="mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {careersNoticeError}
+            </p>
+          )}
+
+          <div className="mt-5">
+            {careersNoticeLoading ? (
+              <div className="h-56 animate-pulse rounded-xl border border-gray-200 bg-gray-100" />
+            ) : careersNotice ? (
+              <div className="space-y-3">
+                <div className="overflow-hidden rounded-xl border border-gray-200 bg-gradient-to-br from-emerald-50/60 via-white to-white">
+                  <RemoteImage
+                    src={careersNotice.imageUrl}
+                    alt="Careers page notice preview"
+                    className="mx-auto block max-h-[360px] w-full object-contain"
+                    loading="eager"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-gray-500">
+                    Last updated {formatDate(careersNotice.updatedAt)} · Max 5 MB
+                    (JPG, PNG or WebP)
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                      {noticeUploading ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <ImagePlus className="h-3.5 w-3.5" />
+                      )}
+                      Replace image
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        disabled={noticeUploading || noticeRemoving}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) void handleNoticeUpload(file);
+                          event.target.value = "";
+                        }}
+                      />
+                    </label>
+                    {confirmNoticeRemove ? (
+                      <span className="inline-flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={noticeRemoving}
+                          onClick={() => void handleNoticeRemove()}
+                          className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                        >
+                          {noticeRemoving ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                          Confirm remove
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmNoticeRemove(false)}
+                          className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100"
+                        >
+                          Cancel
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={noticeUploading || noticeRemoving}
+                        onClick={() => setConfirmNoticeRemove(true)}
+                        className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <label
+                  className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 py-14 text-sm text-gray-500 transition hover:border-emerald-400 hover:text-emerald-600 ${
+                    noticeUploading ? "pointer-events-none opacity-70" : ""
+                  }`}
+                >
+                  {noticeUploading ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : (
+                    <ImagePlus className="h-6 w-6" />
+                  )}
+                  {noticeUploading
+                    ? "Uploading notice image…"
+                    : "Click to upload the notice image"}
+                  <span className="text-xs text-gray-400">
+                    Recommended: 1200 × 600 px · JPG, PNG or WebP · max 5 MB
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    disabled={noticeUploading}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void handleNoticeUpload(file);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, IndianRupee, Loader2, Users } from "lucide-react";
+import { ArrowRight, IndianRupee, Loader2, Megaphone, Users } from "lucide-react";
 import Container from "@/components/common/Container";
+import RemoteImage from "@/components/common/RemoteImage";
 import { useAuth } from "@/hooks/useAuth";
 import { formatHiringPrice } from "@/lib/utils/hiring-fields";
 
@@ -17,6 +18,11 @@ interface PublicForm {
   instructions?: string;
   /** Application fee in rupees; 0 or missing = free. */
   price?: number;
+}
+
+interface PublicNotice {
+  imageUrl: string;
+  updatedAt: string;
 }
 
 function excerpt(text: string, limit = 220): string {
@@ -65,6 +71,7 @@ export default function CareersPage() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
   const [forms, setForms] = useState<PublicForm[] | null>(null);
+  const [notice, setNotice] = useState<PublicNotice | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -74,14 +81,23 @@ export default function CareersPage() {
     let cancelled = false;
     (async () => {
       try {
-        const response = await fetch("/api/hiring/forms", { cache: "no-store" });
-        const json = await response.json().catch(() => null);
+        const [formsResponse, noticeResponse] = await Promise.all([
+          fetch("/api/hiring/forms", { cache: "no-store" }),
+          fetch("/api/hiring/notice", { cache: "no-store" }),
+        ]);
+        const [json, noticeJson] = await Promise.all([
+          formsResponse.json().catch(() => null),
+          noticeResponse.json().catch(() => null),
+        ]);
         if (cancelled) return;
-        if (!response.ok || !json?.success) {
+        if (!formsResponse.ok || !json?.success) {
           setError(json?.message || "Failed to load openings.");
           return;
         }
         setForms(json.data?.forms ?? []);
+        if (noticeResponse.ok && noticeJson?.success) {
+          setNotice(noticeJson.data?.notice ?? null);
+        }
       } catch {
         if (!cancelled) setError("Failed to load openings. Please try again.");
       }
@@ -113,7 +129,26 @@ export default function CareersPage() {
           </p>
         </div>
 
-        <div className="mx-auto mt-10 max-w-[820px]">
+        <div className="mx-auto mt-10 max-w-[820px] space-y-6">
+          {notice?.imageUrl && (
+            <div className="overflow-hidden rounded-2xl border border-emerald-200 bg-card shadow-[0_2px_16px_rgba(16,94,58,0.08)]">
+              <div className="flex items-center gap-2 border-b border-emerald-100 bg-emerald-50/70 px-4 py-3">
+                <Megaphone className="h-4 w-4 text-primary" aria-hidden="true" />
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">
+                  Notice
+                </h2>
+              </div>
+              <div className="bg-gradient-to-br from-emerald-50/50 via-white to-white p-2 sm:p-3">
+                <RemoteImage
+                  src={notice.imageUrl}
+                  alt="Scrapi hiring notice"
+                  className="mx-auto block max-h-[480px] w-full rounded-lg object-contain"
+                  loading="eager"
+                />
+              </div>
+            </div>
+          )}
+
           {(isLoading || (!user && !error)) && (
             <div className="flex items-center justify-center py-16 text-muted">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />

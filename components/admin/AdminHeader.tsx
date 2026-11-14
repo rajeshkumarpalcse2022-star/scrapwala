@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Menu, Search, Bell } from "lucide-react";
 import { adminUser, adminNotifications } from "@/lib/constants/adminDemoData";
 import { getGreeting } from "@/lib/utils/greeting";
@@ -52,14 +53,18 @@ export default function AdminHeader({ onMenuClick }: AdminHeaderProps) {
           />
         </div>
 
-        <button className="relative rounded-lg p-2 text-gray-600 hover:bg-gray-100">
+        <Link
+          href="/admin/notifications"
+          aria-label="Open notifications"
+          className="relative rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100"
+        >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
               {unreadCount}
             </span>
           )}
-        </button>
+        </Link>
 
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">

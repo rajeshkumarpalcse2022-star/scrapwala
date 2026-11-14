@@ -5,6 +5,7 @@ import {
   calculateReadingTimeMinutes,
   countWords,
   extractPlainText,
+  inlineText,
   isEmptyContent,
   parseInlineText,
   sanitizeHref,
@@ -12,11 +13,13 @@ import {
 } from "@/lib/utils/blog-content";
 import {
   blogBlockSchema,
+  blogContentSchema,
   blogStatusActionSchema,
   createBlogCategorySchema,
   createBlogSchema,
   publicBlogQuerySchema,
 } from "@/lib/validations/blog";
+import { blockToEditorHtml } from "@/lib/utils/rich-blog-content";
 
 describe("blog content utils", () => {
   describe("extractPlainText", () => {
@@ -39,6 +42,25 @@ describe("blog content utils", () => {
       assert.equal(extractPlainText(null), "");
       assert.equal(extractPlainText("not an array"), "");
       assert.equal(extractPlainText([null, 42, "x"]), "");
+    });
+
+    it("includes searchable titles from embeds and link cards", () => {
+      const text = extractPlainText([
+        {
+          type: "embed",
+          provider: "youtube",
+          url: "https://youtu.be/abcdefghijk",
+          embedUrl: "https://www.youtube-nocookie.com/embed/abcdefghijk?rel=0",
+          title: "Recycling video",
+        },
+        {
+          type: "link",
+          url: "https://example.com/guide",
+          title: "Recycling guide",
+          description: "A practical handbook",
+        },
+      ]);
+      assert.equal(text, "Recycling video Recycling guide A practical handbook");
     });
   });
 
@@ -115,6 +137,50 @@ describe("blog content utils", () => {
         { type: "text", value: "[]()" },
       ]);
     });
+
+    it("parses underline and escaped literal markers", () => {
+      const underline = parseInlineText("__important__");
+      assert.equal(underline[0]?.type, "underline");
+
+      const literal = parseInlineText("\\*not italic\\* and \\_plain\\_");
+      assert.equal(inlineText("\\*not italic\\* and \\_plain\\_"), "*not italic* and _plain_");
+      assert.equal(
+        literal.every((node) => node.type === "text"),
+        true
+      );
+    });
+  });
+
+  describe("rich editor HTML", () => {
+    it("converts safe inline markup and escaped literals to editor HTML", () => {
+      const html = blockToEditorHtml({
+        type: "paragraph",
+        text: "Use **bold**, __underline__ and [a link](https://scrapi.in)",
+      });
+      assert.match(html, /<strong>bold<\/strong>/);
+      assert.match(html, /<u>underline<\/u>/);
+      assert.match(html, /href="https:\/\/scrapi\.in"/);
+
+      const literal = blockToEditorHtml({
+        type: "paragraph",
+        text: "\\*literal\\*",
+      });
+      assert.equal(literal.includes("<em>"), false);
+      assert.match(literal, /\*literal\*/);
+    });
+
+    it("renders media and embeds as non-editable editor cards", () => {
+      const html = blockToEditorHtml({
+        type: "embed",
+        provider: "youtube",
+        url: "https://www.youtube.com/watch?v=abcdefghijk",
+        embedUrl: "https://www.youtube-nocookie.com/embed/abcdefghijk?rel=0",
+        title: "A video",
+      });
+      assert.match(html, /data-blog-block="embed"/);
+      assert.match(html, /data-blog-action="remove-media"/);
+      assert.equal(html.includes("<iframe"), false);
+    });
   });
 
   describe("blockPreview / isEmptyContent", () => {
@@ -144,9 +210,17 @@ describe("blog content utils", () => {
         }),
         "alt"
       );
+      assert.equal(
+        blockPreview({
+          type: "link",
+          url: "https://x.test",
+          title: "Guide",
+        }),
+        "Guide"
+      );
     });
 
-    it("detects empty content", () => {
+    it("detects empty content and treats media blocks as content", () => {
       assert.equal(isEmptyContent([]), true);
       assert.equal(isEmptyContent(null), true);
       assert.equal(isEmptyContent([{ type: "paragraph", text: "   " }]), true);
@@ -156,6 +230,17 @@ describe("blog content utils", () => {
       );
       assert.equal(
         isEmptyContent([{ type: "paragraph", text: "hi" }]),
+        false
+      );
+      assert.equal(
+        isEmptyContent([
+          {
+            type: "embed",
+            provider: "vimeo",
+            url: "https://vimeo.com/123456789",
+            embedUrl: "https://player.vimeo.com/video/123456789",
+          },
+        ]),
         false
       );
     });
@@ -245,5 +330,55 @@ describe("blog validations", () => {
       blogBlockSchema.safeParse({ type: "html", html: "<script>" }).success,
       false
     );
+  });
+
+  it("accepts only canonical allow-listed social embeds", () => {
+    const valid = blogContentSchema.safeParse([
+      {
+        type: "embed",
+        provider: "youtube",
+        url: "https://youtu.be/abcdefghijk",
+        embedUrl: "https://www.youtube-nocookie.com/embed/abcdefghijk?rel=0",
+      },
+    ]);
+    assert.equal(valid.success, true);
+
+    const unsupported = blogContentSchema.safeParse([
+      {
+        type: "embed",
+        provider: "facebook",
+        url: "https://example.com/post/1",
+        embedUrl: "https://www.facebook.com/plugins/post.php?href=x",
+      },
+    ]);
+    assert.equal(unsupported.success, false);
+
+    const mismatched = blogContentSchema.safeParse([
+      {
+        type: "embed",
+        provider: "youtube",
+        url: "https://youtu.be/abcdefghijk",
+        embedUrl: "https://evil.example/embed",
+      },
+    ]);
+    assert.equal(mismatched.success, false);
+  });
+
+  it("accepts external link cards with safe URLs", () => {
+    const result = createBlogSchema.safeParse({
+      title: "Recycling links",
+      excerpt: "Useful reading for every household.",
+      category: "abc123",
+      authorName: "Team",
+      content: [
+        {
+          type: "link",
+          url: "https://example.com/guide",
+          title: "The recycling guide",
+          description: "Everything you need to know.",
+        },
+      ],
+    });
+    assert.equal(result.success, true);
   });
 });

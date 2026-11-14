@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
+  CalendarClock,
   CheckCircle2,
   Eye,
   EyeOff,
@@ -48,14 +49,24 @@ const STATUS_LABELS: Record<BlogPostStatus, string> = {
 };
 
 function formatDate(value?: string): string {
-  if (!value) return "—";
+  if (!value) return "-";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
+  if (Number.isNaN(date.getTime())) return "-";
   return date.toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
+}
+
+function postDate(post: AdminBlogListItemDTO): string {
+  if (post.status === "scheduled" && post.scheduledAt) {
+    return `Goes live ${formatDate(post.scheduledAt)}`;
+  }
+  if (post.status === "published" && post.publishedAt) {
+    return `Published ${formatDate(post.publishedAt)}`;
+  }
+  return `Updated ${formatDate(post.updatedAt)}`;
 }
 
 export default function AdminBlogsPage() {
@@ -78,14 +89,35 @@ export default function AdminBlogsPage() {
   );
   const [deleting, setDeleting] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
-
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    async function loadCategories() {
+      try {
+        const res = await fetch("/api/admin/blog-categories", {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!cancelled && json.success) {
+          setCategories(json.data?.categories || []);
+        }
+      } catch {
+        // Categories are optional for browsing; the list still works.
+      }
+    }
+    void loadCategories();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-    async function load() {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPosts() {
       setIsLoading(true);
       try {
         const params = new URLSearchParams();
@@ -94,30 +126,18 @@ export default function AdminBlogsPage() {
         if (categoryFilter) params.set("category", categoryFilter);
         if (statusFilter) params.set("status", statusFilter);
 
-        const [postsRes, categoriesRes] = await Promise.all([
-          fetch(`/api/admin/blogs?${params.toString()}`, {
-            cache: "no-store",
-          }),
-          fetch("/api/admin/blog-categories", { cache: "no-store" }),
-        ]);
-
-        const postsJson = await postsRes.json();
+        const res = await fetch(`/api/admin/blogs?${params.toString()}`, {
+          cache: "no-store",
+        });
+        const json = await res.json();
         if (cancelled) return;
-        if (!postsRes.ok || !postsJson.success) {
-          throw new Error(postsJson.message || "Failed to load articles.");
+        if (!res.ok || !json.success) {
+          throw new Error(json.message || "Failed to load articles.");
         }
-
-        setPosts(postsJson.data?.posts || []);
-        setTotal(postsJson.data?.total ?? 0);
-        setTotalPages(postsJson.data?.totalPages ?? 1);
+        setPosts(json.data?.posts || []);
+        setTotal(json.data?.total ?? 0);
+        setTotalPages(json.data?.totalPages ?? 1);
         setLoadError(null);
-
-        if (categoriesRes.ok) {
-          const categoriesJson = await categoriesRes.json();
-          if (categoriesJson.success) {
-            setCategories(categoriesJson.data?.categories || []);
-          }
-        }
       } catch (err) {
         if (cancelled) return;
         setPosts([]);
@@ -129,7 +149,7 @@ export default function AdminBlogsPage() {
       }
     }
 
-    load();
+    void loadPosts();
     return () => {
       cancelled = true;
     };
@@ -269,7 +289,7 @@ export default function AdminBlogsPage() {
         </div>
       )}
 
-      {actionError && (
+      {actionError && !deleteTarget && (
         <div className="flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <div className="flex items-start gap-2">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -292,8 +312,8 @@ export default function AdminBlogsPage() {
             <input
               type="search"
               value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search by title, excerpt or author…"
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Search by title, excerpt or author."
               maxLength={120}
               className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
             />
@@ -309,8 +329,8 @@ export default function AdminBlogsPage() {
         <div className="flex flex-wrap gap-2">
           <select
             value={categoryFilter}
-            onChange={(e) => {
-              setCategoryFilter(e.target.value);
+            onChange={(event) => {
+              setCategoryFilter(event.target.value);
               setPage(1);
             }}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
@@ -324,8 +344,8 @@ export default function AdminBlogsPage() {
           </select>
           <select
             value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
+            onChange={(event) => {
+              setStatusFilter(event.target.value);
               setPage(1);
             }}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
@@ -350,7 +370,7 @@ export default function AdminBlogsPage() {
       {isLoading && (
         <div className="flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white py-16 text-sm text-gray-500 shadow-sm">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Loading articles…
+          Loading articles.
         </div>
       )}
 
@@ -398,225 +418,137 @@ export default function AdminBlogsPage() {
 
       {!isLoading && !loadError && posts.length > 0 && (
         <>
-          <p className="text-sm text-gray-500">
-            {total} article{total === 1 ? "" : "s"}
-          </p>
-
-          <div className="hidden overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm lg:block">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-gray-100 bg-gray-50/80 text-xs uppercase tracking-wide text-gray-400">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">Article</th>
-                  <th className="px-4 py-3 font-semibold">Category</th>
-                  <th className="px-4 py-3 font-semibold">Status</th>
-                  <th className="px-4 py-3 font-semibold">Date</th>
-                  <th className="px-4 py-3 text-right font-semibold">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {posts.map((post) => (
-                  <tr key={post.id} className="transition hover:bg-gray-50/60">
-                    <td className="max-w-md px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="h-12 w-16 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-                          {post.coverImage?.url ? (
-                            <RemoteImage
-                              src={post.coverImage.url}
-                              alt={post.coverImage.alt || post.title}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center">
-                              <FileText className="h-4 w-4 text-gray-300" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="flex items-center gap-1.5 truncate font-medium text-gray-900">
-                            {post.title}
-                            {post.isFeatured && (
-                              <Star
-                                className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-500"
-                                aria-label="Featured"
-                              />
-                            )}
-                          </p>
-                          <p className="truncate text-xs text-gray-500">
-                            /blogs/{post.slug} · {post.authorName}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {post.category?.name ?? "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${STATUS_STYLES[post.status]}`}
-                      >
-                        {STATUS_LABELS[post.status]}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
-                      {post.status === "scheduled" && post.scheduledAt
-                        ? `Schedules ${formatDate(post.scheduledAt)}`
-                        : post.status === "published" && post.publishedAt
-                          ? formatDate(post.publishedAt)
-                          : formatDate(post.updatedAt)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        {actionId === post.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-                        ) : (
-                          <>
-                            {post.status !== "published" && (
-                              <button
-                                onClick={() => runStatusAction(post, "published")}
-                                title="Publish now"
-                                className="rounded-lg p-1.5 text-gray-400 transition hover:bg-emerald-50 hover:text-emerald-600"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </button>
-                            )}
-                            {post.status === "published" && (
-                              <button
-                                onClick={() => runStatusAction(post, "archived")}
-                                title="Unpublish"
-                                className="rounded-lg p-1.5 text-gray-400 transition hover:bg-amber-50 hover:text-amber-600"
-                              >
-                                <EyeOff className="h-4 w-4" />
-                              </button>
-                            )}
-                            {post.status === "published" && (
-                              <button
-                                onClick={() => runFeatureAction(post)}
-                                title={
-                                  post.isFeatured
-                                    ? "Remove from featured"
-                                    : "Feature on blog page"
-                                }
-                                className="rounded-lg p-1.5 text-gray-400 transition hover:bg-amber-50 hover:text-amber-600"
-                              >
-                                <Star
-                                  className={`h-4 w-4 ${post.isFeatured ? "fill-amber-400 text-amber-500" : ""}`}
-                                />
-                              </button>
-                            )}
-                            <Link
-                              href={`/admin/blogs/${post.id}`}
-                              title="Edit article"
-                              className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Link>
-                            <button
-                              onClick={() => setDeleteTarget(post)}
-                              title="Delete article"
-                              className="rounded-lg p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500">
+              {total} article{total === 1 ? "" : "s"}
+            </p>
+            {hasFilters && (
+              <p className="text-xs text-gray-400">Filtered results</p>
+            )}
           </div>
 
-          <div className="space-y-4 lg:hidden">
+          <div className="space-y-3">
             {posts.map((post) => (
-              <div
+              <article
                 key={post.id}
-                className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+                className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:border-emerald-200"
               >
-                <div className="flex gap-3">
-                  <div className="h-16 w-20 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                <div className="flex flex-col gap-4 p-4 sm:flex-row">
+                  <Link
+                    href={`/admin/blogs/${post.id}`}
+                    className="block h-40 w-full shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 sm:h-24 sm:w-36"
+                  >
                     {post.coverImage?.url ? (
                       <RemoteImage
                         src={post.coverImage.url}
                         alt={post.coverImage.alt || post.title}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-cover transition duration-300 hover:scale-[1.03]"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">
-                        <FileText className="h-4 w-4 text-gray-300" />
+                        <FileText className="h-6 w-6 text-gray-300" />
                       </div>
                     )}
-                  </div>
+                  </Link>
+
                   <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-1.5 font-medium text-gray-900">
-                      <span className="truncate">{post.title}</span>
+                    <div className="flex flex-wrap items-start gap-2">
+                      <Link
+                        href={`/admin/blogs/${post.id}`}
+                        className="min-w-0 flex-1 text-base font-semibold leading-snug text-gray-900 hover:text-emerald-700"
+                      >
+                        <span className="line-clamp-2">{post.title}</span>
+                      </Link>
+                      <span
+                        className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${STATUS_STYLES[post.status]}`}
+                      >
+                        {STATUS_LABELS[post.status]}
+                      </span>
+                    </div>
+
+                    <p className="mt-1 line-clamp-2 text-sm text-gray-500">
+                      {post.excerpt}
+                    </p>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
+                      <span>{post.category?.name ?? "No category"}</span>
+                      <span>{post.authorName}</span>
+                      <span className="inline-flex items-center gap-1">
+                        <CalendarClock className="h-3.5 w-3.5" />
+                        {postDate(post)}
+                      </span>
                       {post.isFeatured && (
-                        <Star
-                          className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-500"
-                          aria-label="Featured"
-                        />
+                        <span className="inline-flex items-center gap-1 text-amber-600">
+                          <Star className="h-3.5 w-3.5 fill-amber-400" />
+                          Featured
+                        </span>
                       )}
-                    </p>
-                    <p className="mt-0.5 text-xs text-gray-500">
-                      {post.category?.name ?? "No category"} ·{" "}
-                      {post.status === "scheduled" && post.scheduledAt
-                        ? `Schedules ${formatDate(post.scheduledAt)}`
-                        : formatDate(post.publishedAt ?? post.updatedAt)}
-                    </p>
-                    <span
-                      className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${STATUS_STYLES[post.status]}`}
-                    >
-                      {STATUS_LABELS[post.status]}
-                    </span>
+                      <span className="text-gray-300">/blogs/{post.slug}</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+                <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 bg-gray-50/60 px-4 py-3">
                   {actionId === post.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                    <span className="inline-flex items-center gap-2 text-xs font-medium text-gray-500">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Updating.
+                    </span>
                   ) : (
                     <>
-                      {post.status !== "published" && (
+                      <Link
+                        href={`/admin/blogs/${post.id}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit
+                      </Link>
+                      {post.status !== "published" ? (
                         <button
-                          onClick={() => runStatusAction(post, "published")}
-                          className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                          onClick={() => void runStatusAction(post, "published")}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100"
                         >
                           <Eye className="h-3.5 w-3.5" />
                           Publish
                         </button>
-                      )}
-                      {post.status === "published" && (
+                      ) : (
                         <>
                           <button
-                            onClick={() => runStatusAction(post, "archived")}
-                            className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                            onClick={() => void runStatusAction(post, "archived")}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50"
                           >
                             <EyeOff className="h-3.5 w-3.5" />
                             Unpublish
                           </button>
                           <button
-                            onClick={() => runFeatureAction(post)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                            onClick={() => void runFeatureAction(post)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50"
                           >
                             <Star
-                              className={`h-3.5 w-3.5 ${post.isFeatured ? "fill-amber-400 text-amber-500" : ""}`}
+                              className={`h-3.5 w-3.5 ${
+                                post.isFeatured
+                                  ? "fill-amber-400 text-amber-500"
+                                  : ""
+                              }`}
                             />
-                            {post.isFeatured ? "Featured" : "Feature"}
+                            {post.isFeatured ? "Unfeature" : "Feature"}
                           </button>
+                          <Link
+                            href={`/blogs/${post.slug}`}
+                            target="_blank"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            View
+                          </Link>
                         </>
                       )}
-                      <Link
-                        href={`/admin/blogs/${post.id}`}
-                        className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                        Edit
-                      </Link>
                       <button
-                        onClick={() => setDeleteTarget(post)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50"
+                        onClick={() => {
+                          setActionError(null);
+                          setDeleteTarget(post);
+                        }}
+                        className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-red-500 transition hover:bg-red-50"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                         Delete
@@ -624,7 +556,7 @@ export default function AdminBlogsPage() {
                     </>
                   )}
                 </div>
-              </div>
+              </article>
             ))}
           </div>
 
@@ -635,14 +567,16 @@ export default function AdminBlogsPage() {
               </p>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
                   disabled={page <= 1}
                   className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Previous
                 </button>
                 <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() =>
+                    setPage((current) => Math.min(totalPages, current + 1))
+                  }
                   disabled={page >= totalPages}
                   className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
@@ -681,11 +615,11 @@ export default function AdminBlogsPage() {
               Cancel
             </button>
             <button
-              onClick={runDelete}
+              onClick={() => void runDelete()}
               disabled={deleting}
               className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
             >
-              {deleting ? "Deleting…" : "Delete Permanently"}
+              {deleting ? "Deleting." : "Delete Permanently"}
             </button>
           </div>
         </div>

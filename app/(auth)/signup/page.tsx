@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 type Step = "form" | "otp";
 
-const RESEND_COUNTDOWN = 40;
+const RESEND_COUNTDOWN = 60;
 
 export default function SignupPage() {
   const router = useRouter();

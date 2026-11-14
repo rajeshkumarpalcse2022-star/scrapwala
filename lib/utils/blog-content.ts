@@ -1,3 +1,6 @@
+import { slugify } from "./slug";
+import type { SocialEmbedProvider } from "./social-embeds";
+
 /**
  * Structured blog article content.
  *
@@ -10,6 +13,8 @@
 
 export type HeadingLevel = 2 | 3 | 4;
 
+export type TextAlign = "left" | "center" | "right" | "justify";
+
 export interface BlogImageBlock {
   type: "image";
   url: string;
@@ -18,18 +23,38 @@ export interface BlogImageBlock {
   caption?: string;
 }
 
+export interface BlogEmbedBlock {
+  type: "embed";
+  provider: SocialEmbedProvider;
+  /** Original public post/video URL (canonicalised to https). */
+  url: string;
+  /** Provider iframe URL; recomputed before rendering, never trusted blindly. */
+  embedUrl: string;
+  title?: string;
+}
+
+export interface BlogLinkBlock {
+  type: "link";
+  url: string;
+  title: string;
+  description?: string;
+}
+
 export type BlogBlock =
-  | { type: "heading"; level: HeadingLevel; text: string }
-  | { type: "paragraph"; text: string }
-  | { type: "bulletList"; items: string[] }
-  | { type: "orderedList"; items: string[] }
-  | { type: "blockquote"; text: string }
-  | BlogImageBlock;
+  | { type: "heading"; level: HeadingLevel; text: string; align?: TextAlign }
+  | { type: "paragraph"; text: string; align?: TextAlign }
+  | { type: "bulletList"; items: string[]; align?: TextAlign }
+  | { type: "orderedList"; items: string[]; align?: TextAlign }
+  | { type: "blockquote"; text: string; align?: TextAlign }
+  | BlogImageBlock
+  | BlogEmbedBlock
+  | BlogLinkBlock;
 
 export type InlineNode =
   | { type: "text"; value: string }
   | { type: "strong"; children: InlineNode[] }
   | { type: "em"; children: InlineNode[] }
+  | { type: "underline"; children: InlineNode[] }
   | { type: "a"; href: string; children: InlineNode[] };
 
 /* ── Plain text / reading time ─────────────────────────────────────────── */
@@ -65,6 +90,13 @@ export function extractPlainText(content: unknown): string {
       case "image":
         if (typeof block.alt === "string") collectText(block.alt, parts);
         if (typeof block.caption === "string") collectText(block.caption, parts);
+        break;
+      case "embed":
+        if (typeof block.title === "string") collectText(block.title, parts);
+        break;
+      case "link":
+        if (typeof block.title === "string") collectText(block.title, parts);
+        if (typeof block.description === "string") collectText(block.description, parts);
         break;
       default:
         break;
@@ -103,6 +135,22 @@ export function sanitizeHref(href: string): string | null {
   return trimmed;
 }
 
+const ESCAPABLE_INLINE = new Set(["*", "_", "[", "]", "(", ")", "\\"]);
+
+/** Find a delimiter that is not escaped with a backslash. */
+function findUnescaped(input: string, marker: string, from: number): number {
+  let position = input.indexOf(marker, from);
+  while (position !== -1) {
+    let backslashes = 0;
+    for (let i = position - 1; i >= 0 && input[i] === "\\"; i -= 1) {
+      backslashes += 1;
+    }
+    if (backslashes % 2 === 0) return position;
+    position = input.indexOf(marker, position + marker.length);
+  }
+  return -1;
+}
+
 function parseInner(input: string, depth: number): InlineNode[] {
   if (depth > MAX_INLINE_DEPTH) {
     return [{ type: "text", value: input }];
@@ -119,8 +167,20 @@ function parseInner(input: string, depth: number): InlineNode[] {
   };
 
   while (index < input.length) {
+    if (
+      input[index] === "\\" &&
+      index + 1 < input.length &&
+      ESCAPABLE_INLINE.has(input[index + 1])
+    ) {
+      pushPlain(index);
+      nodes.push({ type: "text", value: input[index + 1] });
+      index += 2;
+      plainStart = index;
+      continue;
+    }
+
     if (input.startsWith("**", index)) {
-      const closing = input.indexOf("**", index + 2);
+      const closing = findUnescaped(input, "**", index + 2);
       if (closing > index + 1) {
         const inner = input.slice(index + 2, closing);
         pushPlain(index);
@@ -134,8 +194,25 @@ function parseInner(input: string, depth: number): InlineNode[] {
       }
     }
 
+    if (input.startsWith("__", index)) {
+      const closing = findUnescaped(input, "__", index + 2);
+      if (closing > index + 1) {
+        const inner = input.slice(index + 2, closing);
+        if (inner.trim().length > 0) {
+          pushPlain(index);
+          nodes.push({
+            type: "underline",
+            children: parseInner(inner, depth + 1),
+          });
+          index = closing + 2;
+          plainStart = index;
+          continue;
+        }
+      }
+    }
+
     if (input[index] === "*" && input[index + 1] !== "*") {
-      const closing = input.indexOf("*", index + 1);
+      const closing = findUnescaped(input, "*", index + 1);
       if (closing > index) {
         const inner = input.slice(index + 1, closing);
         if (inner.trim().length > 0) {
@@ -149,14 +226,14 @@ function parseInner(input: string, depth: number): InlineNode[] {
     }
 
     if (input[index] === "[") {
-      const closingBracket = input.indexOf("]", index + 1);
+      const closingBracket = findUnescaped(input, "]", index + 1);
       if (
         closingBracket > index &&
         input[closingBracket + 1] === "(" &&
-        input.indexOf(")", closingBracket + 2) > closingBracket + 1
+        findUnescaped(input, ")", closingBracket + 2) > closingBracket + 1
       ) {
         const label = input.slice(index + 1, closingBracket);
-        const hrefEnd = input.indexOf(")", closingBracket + 2);
+        const hrefEnd = findUnescaped(input, ")", closingBracket + 2);
         const rawHref = input.slice(closingBracket + 2, hrefEnd);
         const href = sanitizeHref(rawHref);
         if (href && label.length > 0) {
@@ -189,6 +266,50 @@ export function parseInlineText(input: string): InlineNode[] {
   return parseInner(input, 0);
 }
 
+function inlineNodesToText(nodes: InlineNode[]): string {
+  return nodes
+    .map((node) => (node.type === "text" ? node.value : inlineNodesToText(node.children)))
+    .join("");
+}
+
+/** Human-readable text of inline markup (used by headings and the ToC). */
+export function inlineText(input: string): string {
+  return inlineNodesToText(parseInlineText(input)).replace(/\s+/g, " ").trim();
+}
+
+/** Stable anchor id for a heading, unique within an article. */
+export function blogHeadingAnchor(text: string, index: number): string {
+  const base = slugify(inlineText(text)).slice(0, 48) || "section";
+  return `section-${base}-${index}`;
+}
+
+export interface BlogHeading {
+  id: string;
+  text: string;
+  level: HeadingLevel;
+}
+
+/** Extract the article outline straight from the stored blocks. */
+export function extractHeadings(content: unknown): BlogHeading[] {
+  if (!Array.isArray(content)) return [];
+
+  const headings: BlogHeading[] = [];
+  content.forEach((block, index) => {
+    if (!block || typeof block !== "object") return;
+    const candidate = block as Partial<BlogBlock>;
+    if (candidate.type !== "heading" || typeof candidate.text !== "string") return;
+    const text = inlineText(candidate.text);
+    if (!text) return;
+    headings.push({
+      id: blogHeadingAnchor(candidate.text, index),
+      text,
+      level: candidate.level ?? 2,
+    });
+  });
+
+  return headings;
+}
+
 /* ── Editors helpers ───────────────────────────────────────────────────── */
 
 /** Plain-text preview of a block, used for list headers and empty checks. */
@@ -205,6 +326,10 @@ export function blockPreview(block: BlogBlock): string {
       return block.items[0] ?? "";
     case "image":
       return block.caption || block.alt || "Image";
+    case "embed":
+      return block.title || block.url || "Social embed";
+    case "link":
+      return block.title || block.url || "Link";
     default:
       return "";
   }
@@ -218,7 +343,13 @@ export function isEmptyContent(content: unknown): boolean {
     if (candidate.type === "bulletList" || candidate.type === "orderedList") {
       return !Array.isArray(candidate.items) || candidate.items.length === 0;
     }
-    if (candidate.type === "image") return false;
+    if (
+      candidate.type === "image" ||
+      candidate.type === "embed" ||
+      candidate.type === "link"
+    ) {
+      return false;
+    }
     if (typeof candidate.text === "string") return candidate.text.trim() === "";
     return true;
   });
